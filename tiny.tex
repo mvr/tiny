@@ -6,17 +6,17 @@
 \usepackage{amssymb,amsthm}
 \usepackage{thmtools}
 \usepackage{amsmath}
+\usepackage{wasysym}
 
 \usepackage{mathpartir}
 \usepackage{tikz-cd}
 
+\usepackage{graphicx}
+\usepackage{scalerel}
 \usepackage{fontawesome}
 
 \usepackage{xcolor}
 \definecolor{darkgreen}{rgb}{0,0.45,0}
-\usepackage{hyperref}
-\usepackage{cleveref}
-\hypersetup{colorlinks,citecolor=darkgreen,linkcolor=darkgreen}
 
 \usepackage[status=draft,inline,nomargin]{fixme}
 \FXRegisterAuthor{mvr}{anmvr}{\color{blue}MVR}
@@ -49,9 +49,11 @@
 
 \newcommand{\ctx}{\,\,\mathsf{ctx}}
 \newcommand{\type}{\,\,\mathsf{type}}
+\newcommand{\tele}{\,\,\mathsf{tele}}
 
 % Ordinary HoTT notation
 \newcommand{\Idsym}{\mathsf{Id}}
+\newcommand{\Id}{\mathsf{Id}}
 %\newcommand{\Id}[3]{\mathsf{Id}_{{#1}}(#2,#3)}
 \newcommand*{\trunc}[2]{\mathopen{}\left\Vert #2\right\Vert_{#1}\mathclose{}}
 \newcommand*{\strunc}[2]{\mathopen{}\left\Vert #2\right\Vert_{#1}^s\mathclose{}}
@@ -107,9 +109,20 @@
 \newcommand{\M}{\mathcal{M}}
 \newcommand{\C}{\mathcal{C}}
 \newcommand{\Set}{\mathrm{Set}}
-\newcommand{\lock}{\text{\faLock}}
+%\newcommand{\lock}{\text{\faLock}}
+\newcommand{\lock}{\mathchoice
+{\scalebox{0.8}{\text{\faLock}}}
+{\scalebox{0.8}{\text{\faLock}}}
+{\scalebox{0.5}{\text{\faLock}}}
+{\scalebox{0.4}{\text{\faLock}}}
+}
 \newcommand{\unlock}{\text{\faUnlock}}
-\newcommand{\key}{\text{\faKey}}
+\newcommand{\key}{\mathchoice
+{\scalebox{0.8}{\text{\faKey}}}
+{\scalebox{0.8}{\text{\faKey}}}
+{\scalebox{0.5}{\text{\faKey}}}
+{\scalebox{0.4}{\text{\faKey}}}
+}
 
 \newcommand{\Tiny}{\mathbb{T}}
 \newcommand{\lockn}[1]{\mathcal{#1}}
@@ -119,6 +132,7 @@
 \newcommand{\admkeye}[2]{\overrightarrow{\key}_{#1}^{#2}}
 \newcommand{\ctxlock}[1]{\lock_{\lockn{#1}}}
 \newcommand{\ctxlocke}[1]{\lock_{#1}}
+\newcommand{\ctxopen}[2]{\unlock_{\lockn{#1}}^{\,#2}}
 \newcommand{\locksub}[2]{\lock_{\lockn{#1}}/#2}
 
 \newcommand{\rform}[2]{\surd_{\lockn{#1}} #2}
@@ -126,13 +140,20 @@
 \newcommand{\rforme}[2]{\surd_{#1} #2}
 \newcommand{\rintro}[2]{\mathsf{root}_{\lockn{#1}}(#2)}
 \newcommand{\rintroe}[2]{\mathsf{root}_{#1}(#2)}
-\newcommand{\relim}[1]{\mathsf{unroot}(#1)}
+%\newcommand{\relim}[1]{\mathsf{unroot}(#1)}
+%\newcommand{\rbindsym}{\rotatebox[origin=c]{180}{$\lambda$}}
+\newcommand{\rbindsym}{\scalerel*{\reflectbox{\rotatebox[origin=c]{180}{$\lambda$}}}{\lambda}}
+\newcommand{\relim}[1]{\rbindsym #1}
 \newcommand{\retro}[1]{\mathsf{retro}\,#1}
 
 %\newcommand{\rdepform}[2]{{\between^{#1}}#2}
 \newcommand{\rdepform}[2]{{#2}^{1/#1}}
 
-\newcommand{\rget}[1]{#1_{\downharpoonleft}}
+\newcommand{\rget}[1]{{#1}_{\downharpoonleft}}
+
+\usepackage{hyperref}
+\usepackage{cleveref}
+\hypersetup{colorlinks,citecolor=darkgreen,linkcolor=darkgreen}
 
 \title{Tiny Object}
 \author{}
@@ -141,100 +162,224 @@
 \begin{document}
 \maketitle
 
-We describe a type theory that makes a fixed type $\Tiny$ a `tiny object': there is a type former $\rformu$ that acts as the \emph{external} right adjoint to $(\Tiny \to -)$. In contrast to \cite[Section 2]{transpension}, we only add a type former for this `global' function space, rather than adding a right adjoint to the dependent product $\Pi_\Tiny : \mathcal{E}/\Tiny \to \mathcal{E}$. This makes the rules for the $\rformu$ type much simpler, and (conjecturally) lets us maintain admissibility of substitution, normalisation, etc. And, as we will see later, we can derive this right adjoint to $\Pi_\Tiny$ using $\Idsym$-types.
+We describe a type theory that makes a fixed type $\Tiny$ a `tiny object': there is a type former $\rformu$ that acts as the \emph{external} right adjoint to $(\Tiny \to -)$. In contrast to \cite[Section 2]{transpension}, we only add a type former for this `global' function space, rather than adding a right adjoint to the dependent product $\Pi_\Tiny : \mathcal{E}/\Tiny \to \mathcal{E}$. This makes the rules for the $\rformu$ type much simpler, and (conjecturally) lets us maintain admissibility of substitution, normalisation, etc. And, as we will see later, we can derive this right adjoint to $\Pi_\Tiny$ internally using $\Idsym$-types.
 
-We will add $\rformu$ as a `Fitch style' modality~\cite{clouston:fitch-style}, where the type former is made right-adjoint to a context lock. Such modalities are particularly nice when they are a \emph{double} right adjoint, and FitchTT~\cite{fitchtt} investigates adding modalities of this kind to MLTT. We are in such a situation, of course, because \[{(- \times \Tiny) \dashv (\Tiny \to -) \dashv \rformu -},\] and so we could use~\cite{fitchtt} directly to produce a type theory. 
+We will add $\rformu$ as a `Fitch style' modality~\cite{clouston:fitch-style}, where the type former is made right-adjoint to a context lock. Such modalities are particularly nice when they are a \emph{double} right adjoint, and FitchTT~\cite{fitchtt} investigates adding modalities of this kind to MLTT. We are in such a situation, of course, because \[{(- \times \Tiny) \dashv (\Tiny \to -) \dashv \rformu -},\] and so we could use~\cite{fitchtt} directly to produce a type theory.
 
-But there is a special feature of $\rformu$ which impels us to create a specialised theory for it. Specifically, the leftest adjoint $(- \times \Tiny)$ already exists as an operation on contexts: it is simply context extension with $i : \Tiny$. We allow $\Tiny$ to be an \emph{ordinary type}, rather than a pre-type or special piece of syntax. The only new context former needed is $(\Tiny \to -)$, which we write as $\lock$. 
+But there is a special feature of $\rformu$ which impels us to create a specialised theory for it. Specifically, the leftmost adjoint $(- \times \Tiny)$ already exists as an operation on contexts: it is simply context extension with $i : \Tiny$. We allow $\Tiny$ to be an \emph{ordinary type}, rather than a pre-type or special piece of syntax. The only new context former needed is something corresponding to $(\Tiny \to -)$, which we write as $\lock$.
 
-To make $(-,i:\Tiny) \dashv (-,\lock)$ on contexts, we need unit $\Gamma \to (\Gamma,i : \Tiny, \ctxlock{L})$ and counit $(\Gamma,\ctxlock{L},i : \Tiny) \to \Gamma$ substitutions, preferably admissible. The reason this gets interesting is that, because $\Tiny$ is an ordinary type, we can substitute \emph{any term} $t : \Tiny$ for $i$ in the counit substitution. And so, the admissible counit rule is parameterised by a genuine term $t : \Tiny$. This contrasts with \cite{cavallo-harper:parametricity-for-ctt,cavallo:thesis} and \cite[Section 5]{fitchtt}, where the $\Gamma,i:\Tiny$ context extension is a special piece of syntax, and so only special `terms' may be substituted for it.
+To make $(-,i:\Tiny) \dashv (-,\lock)$ on contexts, we need unit $\Gamma \to (\Gamma,i : \Tiny, \lock)$ and counit $(\Gamma,\lock,i : \Tiny) \to \Gamma$ substitutions. In~\cite{fitchtt}, these are added axiomatically, and the type theory is presented in a variable-free CwF style where these explicit substitutions are pushed around manually. The downside of the approach is that figuring out how to use a variable could be challenging: we may have to devise by hand a complicated explicit substitution that extracts the variable from the context. It is expected that FitchTT satisfies strong normalisation, and so there is a set of normal forms for variable uses, but this does not assist a user of the type theory in writing one down.  One of our aims is to give a fully explicit variable rule, which builds the in normal forms of these `stuck substitutions'.
 
-Our type theory meets a challenge set by Lawvere, to produce a formal system for working with tiny objects: ``This possibility does not seem to have been contemplated by combinatory logic; the formalism should be extended to enable treatment of so basic a situation''~\cite[Section 3]{lawvere:adjoints}.
+The reason this gets interesting is that, because $\Tiny$ is an ordinary type, we can substitute \emph{any term} $t : \Tiny$ for $i$ in the counit substitution. And so, the admissible counit rule is parameterised by a genuine term $t : \Tiny$. The counit rule only gets stuck on the ordinary variable rule, so every use of a variable in this theory can have (possibly many) attached terms of $\Tiny$ corresponding to these stuck counits. Having $\Tiny$ as an ordinary type contrasts with \cite{cavallo-harper:parametricity-for-ctt,cavallo:thesis} and \cite[Section 5]{fitchtt}, where the $\Gamma,i:\Tiny$ context extension is a special piece of syntax, and so only special `terms' may be substituted for it.
 
-\paragraph{Assorted thoughts.}
+In~\cite{lops}, a tiny interval $\mathbb{I}$ is used to internally construct a universe that classifies fibrations. The $\rformu$ type former is described by a collection of axioms, and the fact that the adjunction is external is enforced by requiring the inputs to these axioms to be `crisp', roughly, protected by a use of the global sections/discrete inclusion modality $\flat$. The result is an equivalence $\flat((\Tiny \to A) \to B) \equiv \flat(A \to \rformu B)$, but we will see that this is more restrictive than necessary. If we have the $\rformu$ type former built-in, then we can prove an equivalence $\rformu ((\Tiny \to A) \to B) \equiv (A \to \rformu B)$, where $A$ and $B$ do not have to be `global types'. (But the dependency of $B$ is still somewhat restricted.)
 
-A downside of the~\cite{fitchtt} approach is that the type theory is presented in a variable-free CwF style. This means that figuring out how to use a variable could be challenging: we may have to devise by hand a complicated explicit substitution that extracts the variable from the context. It is expected that FitchTT satisfies strong normalisation, and so there is a set of normal forms for variable uses, but this does not assist a user of the type theory in writing one down.  One of our aims is to give a fully explicit variable rule, which builds the in normal forms of these `stuck substitutions'.
+Our type theory tackles a challenge set by Lawvere, to produce a formal system for working with tiny objects: ``This possibility does not seem to have been contemplated by combinatory logic; the formalism should be extended to enable treatment of so basic a situation''~\cite[Section 3]{lawvere:adjoints}.
 
-In~\cite{lops}, a tiny interval $\mathbb{I}$ is used to construct in type theory a universe that classifies fibrations. The $\rformu$ type former is described by a collection of axioms, and the fact that the adjunction is external is enforced by requiring the inputs to these axioms to be `crisp', essentially, guarded by a use of the global sections/discrete inclusion modality $\flat$. The result is an equivalence $\flat((\Tiny \to A) \to B) \equiv \flat(A \to \rformu B)$, but we will see that this is more restrictive than necessary. If we have the $\rformu$ type former built-in, then we can prove an equivalence $\rformu ((\Tiny \to A) \to B) \equiv (A \to \rformu B)$, where $A$ and $B$ do not have to be `global types'. (But there is still a restriction on $B$, we must have $B : \rform{} \univ$.)
-
-Finally, I am strongly reminded of~\cite[Section 2.3]{altenkirch-kaposi:without-interval}, whose $\Gamma^=$ looks an awful lot like our $\Gamma, \lock$ supposing two points $0, 1 : \Tiny$, and whose `logical relation at a type' looks an awful lot like a pair of maps
-\begin{align*}
-(-)^{*T} &: \prd{A:\univ} \rform{L}\left(\varkey{L}{0}A \to \varkey{L}{1}A \to \univ\right) \\
-(-)^{*t} &: \prd{A:\univ} {a : A}  \rform{L}\left((\rget{A})^{*T}(\varkey{L}{0}a,\varkey{L}{1}a)\right)
-\end{align*}
-%Then define $\Idsym_A(a,a') :\defeq \relim{\_.A^{*T}}(a,a')$ and $\refl{a} :\defeq \relim{\_.a^{*t}}$. Their stuck $\mathsf{R} : \Gamma \to \Gamma^=$ are admissible for us: it is just the transpose of weakening, which corresponds to ignoring the new variable in $\relim{i.a}$.
+%\mvrnote{Which cube categories have tiny intervals? \cite{buchholtz-morehouse:cubes}}
 
 \section{Contexts and Variables}
+
+There are two new base rules, the context lock and the modified variable rule. There are two new admissible rules, corresponding to precomposition with the counit and unit of the $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
 
 \begin{itemize}
 \item \textbf{Context Lock.} We add a special context extension,
 \begin{mathpar}
 \inferrule*[left=ctx-lock]{\Gamma \ctx}{\Gamma, \ctxlock{L} \ctx} \and
 \end{mathpar}
-with intended meaning $(\Gamma, \ctxlock{L}) :\defeq \Tiny \to \Gamma$.
+which should be thought of as $\Tiny \to \Gamma$. We call $\lockn{L}$ a lock name, all lock names in a context are unique.
 
-\item \textbf{Counit.} Because a lock is just a function type, we can use variables behind it if we can provide an argument to the function: this is the counit of the  $(- \times \Tiny) \dashv (\Tiny \to -)$ adjunction. A first cut:
+\item \textbf{Counit.} Because a lock on a context is just a function into that context, we can use variables to the left of the lock if we can provide an argument to the function: this is the counit of the $(- \times \Tiny) \dashv (\Tiny \to -)$ adjunction. The simplest situation we could encounter is
 \begin{mathpar}
 \inferrule*[left=counit?,fraction={-{\,-\,}-}]{\Gamma \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny \and \lock \notin \Gamma'}{\Gamma, \ctxlock{L}, \Gamma' \yields \admkey{L}{t} a : \admkey{L}{t} A}
 \end{mathpar}
-The one new piece of term syntax is a stuck instance of $\admkey{L}{t}$, which we build into the variable rule below. For clarity we will write the admissible rule as $\admkey{L}{t}$ and the actual stuck piece of syntax as $\varkey{L}{t}$. (Think of the one with the arrow as `in motion'.) Roughly, $\admkey{L}{t}$ will add a $\varkey{L}{t}$ to every \emph{free} variable use, a bit like the underlining in the $\natural$ stuff. 
+so that the function ``$(\Tiny \to \Gamma)$'' is applied to $t : \Tiny$. The new piece of term syntax is a stuck instance of this $\admkey{L}{t}$ rule, which we build into the variable rule below. To distinguish the two, we will write the admissible rule as $\admkey{L}{t}$ and the actual stuck piece of syntax as $\varkey{L}{t}$: think of the one with the arrow as `in motion' down to the variables. Roughly, $\admkey{L}{t}$ will add a stuck $\varkey{L}{t}$ to every \emph{free} variable use, a bit like the underlining operation in the $\natural$ stuff.
 
-\item \textbf{Variable Usage.} To use a variable that is behind some locks, we have to provide a $t : \Tiny$ for each intervening lock. Each $t_i$ is allowed to use the part of the context that comes immediately after the corresponding $\lockn{L}_i$.
-\begin{mathpar}
-%\inferrule*[left=var-option-1]{n \defeq |{\mathsf{locks}(\Gamma')}| \\\\
-%\Gamma, x : A, \Gamma' \yields t_i : \Tiny \text{ for } i \in [1,n]
-%}{\Gamma, x : A, \Gamma' \yields \varkey{t_n} \dots \varkey{t_1} x : \admkey{t_n} \dots \admkey{t_1} A} \and
-\inferrule*[left=var]{
-\Gamma, x : A, \Gamma'_{>\lockn{L}_i} \yields t_i : \Tiny \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma')
-}{\Gamma, x : A, \Gamma' \yields \varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x : \admkeye{\lockn{L}_n}{t_n} \dots \admkeye{\lockn{L}_1}{t_1} A} \and
-\end{mathpar}
-where $\Gamma_{>\lockn{L}}$ extracts everything between $\ctxlock{L}$ and the lock to its right: 
-\begin{align*}
-(\Gamma, \ctxlock{L}, \Gamma')_{>\lockn{L}} &:\defeq \Gamma, \ctxlock{L}, \Gamma' && \lock \notin \Gamma' \\
-(\Gamma, \ctxlock{L}, \Gamma', \ctxlock{{K}}, \Gamma'')_{>\lockn{L}} &:\defeq \Gamma, \ctxlock{L}, \Gamma' && \lock \notin \Gamma'
-\end{align*}
-This makes the admissible $\admkey{L}{t} a$ easiest to do by hand.
+We will need a generalised version of this counit rule, for going under binders in the term $a : A$. The actual counit rule is then
 \begin{mathpar}
 \inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \Gamma'' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \Gamma', \admkey{L}{t}\Gamma'' \yields \admkey{L}{t} a : \admkey{L}{t} A}
 \end{mathpar}
-This is calculated as follows. We induct on $a$ until we reach an instance of the above variable rule. Suppose the locks on the context after $x : A$ (from left to right) are $\lockn{K}_1, \dots,\lockn{K}_i, \lockn{K}_{i+1}, \dots, \lockn{K}_n$, so that $\lockn{K}_1, \dots,\lockn{K}_i$ lies in $\Gamma$ and $\lockn{K}_{i+1}, \dots, \lockn{K}_n$ lies in $\Gamma''$. Then we just slot the new $\key$ into place:
+where $\admkey{L}{t}\Gamma''$ applies $\admkey{L}{t}$ individually to all the types in $\Gamma''$.
+
+\item \textbf{Variable Usage.} To use a variable $x : A$ that is
+  behind some locks, we have to provide a $t_i : \Tiny$ for each
+  lock between that variable and the end of the context.
+
+  Suppose the context contains a collection of locks
+  $\ctxlocke{\lockn{L}_1}, \dots, \ctxlocke{\lockn{L}_n}$ from left to
+  right, and the variable $x$ lies between $\ctxlocke{\lockn{L}_{i-1}$
+  and $\ctxlocke{\lockn{L}_i}$.
+
+\begin{mathpar}
+\inferrule*[left=var?,fraction={-{\,-\,}-}]{
+\Gamma, x : A, \Gamma'_{> \ctxlocke{\lockn{L}_i}} \yields t_i : \Tiny \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma')
+}{\Gamma, x : A, \Gamma' \yields \varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x : \admkeye{\lockn{L}_n}{t_n} \dots \admkeye{\lockn{L}_1}{t_1} A} \and
+\end{mathpar}
+The type of the variable has the admissible counit rule applied to it:
+typically these `keys' will not be stuck on the type $A$ the way they
+are on the variable $x$.
+
+As in the admissible counit rule, this is not quite general enough to under binders. So the actual rule allows us to keep around additional bits of $\Gamma'$, as long as they line up with the choices we have made for the locks so far.
+\begin{mathpar}
+\inferrule*[left=var]{
+\Gamma, x : A, \Gamma'|_{\varkeye{\lockn{L}_{i+1}}{t_{i+1}}\dots\varkeye{\lockn{L}_n}{t_n}} \yields t_i : \Tiny \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma')
+}{\Gamma, x : A, \Gamma' \yields \varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x : \admkeye{\lockn{L}_n}{t_n} \dots \admkeye{\lockn{L}_1}{t_1} A} \and
+\end{mathpar}
+\mvrnote{Oops: this isn't stable under every substitution: you can produce a term of $\Tiny$ using `bad' variables that get deleted, see the end of the doc.}
+
+where $\Gamma'|_{\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_n}{t_n}}$ extracts the variables in $\Gamma'$ whose types are equal to some type under $\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_n}{t_n}$, and deletes all the locks $\ctxlocke{\lockn{L}_i}$ to $\ctxlocke{\lockn{L}_{n}}$:
+\begin{align*}
+(\Gamma', x : A)|_{\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_n}{t_n}} &:\defeq \Gamma'|_{\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_n}{t_n}}, x : A' && \text{if } A \defeq \admkeye{\lockn{L}_i}{t_i}\dots\admkeye{\lockn{L}_n}{t_n} A' \\
+(\Gamma', x : A)|_{\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_n}{t_n}} &:\defeq \Gamma'|_{\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_n}{t_n}} && \text{otherwise} \\
+(\Gamma', \ctxlocke{\lockn{L}_n})|_{\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_n}{t_n}} &:\defeq \Gamma'|_{\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_{n-1}}{t_{n-1}}} \\
+(\Gamma', \ctxlocke{\lockn{L}_i})|_{\varkeye{\lockn{L}_i}{t_i}} &:\defeq \Gamma'
+\end{align*}
+
+The \rulen{counit} rule leaves us with a context in the conclusion of the form $\admkey{L}{t}\Gamma''$. To make the context in the conclusion of the \rulen{var} rule fully general, we have to both build in weakening for arbitrary variables, and `reverse' this operation to find the original $\Gamma''$. This $\Gamma'|_{\varkeye{\lockn{L}_i}{t_i}\dots\varkeye{\lockn{L}_n}{t_n}}$ operation is basically cooked up so that $(\admkey{L}{t}\Gamma'')|_{\varkey{L}{t}} \defeq \Gamma''$, and that $\admkey{L}{t}(\Gamma'|_{\varkey{L}{t}})$ can be weakened back to $\Gamma'$.
+
+\item \textbf{Calculating the Counit.}
+On terms $a : A$, the term $\admkey{L}{t} a$ is calculated as
+follows. We induct on $a$ until we reach an instance of the above
+variable rule. Suppose that, once reaching the variable,  the locks on the context after $x : A$ (from left to right) are $\lockn{K}_1, \dots,\lockn{K}_i, \lockn{K}_{i+1}, \dots, \lockn{K}_n$, so that $\lockn{K}_1, \dots,\lockn{K}_i$ lies in $\Gamma$ and $\lockn{K}_{i+1}, \dots, \lockn{K}_n$ lies in $\Gamma''$. Then we just slot the new $\key$ into place:
 \begin{align*}
 \admkeye{\lockn{L}}{t}  \left(\varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{K}_i}{s_i} \dots \varkeye{\lockn{K}_1}{s_1} x\right) :\defeq \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{L}}{t}  \varkeye{\lockn{K}_i}{s_i} \dots \varkeye{\lockn{K}_1}{s_1} x
 \end{align*}
 
-There are a couple of downsides to this variable rule: first, there doesn't seem to be a way to get past several locks with the same term: there is no way to write
-\begin{align*}
-x : A, \ctxlock{L}, \ctxlock{K}, t : \Tiny \yields \varkey{K}{t} \varkey{L}{t} x : A
-\end{align*}
-because we lose access to $t$ after going past $\varkey{K}{t}$ and so can't write $\varkey{L}{t}$. We discuss this some more at the end. Second, it could be a little annoying to figure out which variables are allowed to be used for each $t_i$ while working informally: the context for each $t_i$ is different. In any case, this variable rule is all that is necessary for the type former to make sense, so we stick with it for now.
+When working informally, this means keeping track of how many new $\ctxlocke{\lockn{K}_i}$ you go under (this will be obvious), and then placing $\varkeye{\lockn{L}}{t}$ after all of the new $\ctxlocke{\lockn{K}_i}$ that you encountered.
 
-\item \textbf{Unit.} The unit of $(- \times \Tiny) \dashv (\Tiny \to -)$ is a little mysterious: there needs to be a substitution $\Gamma \to (\Gamma,i : \Tiny, \ctxlock{L})$. The following rule is precomposition with this substitution, possibly under some further context extension $\Gamma'$.
+\item \textbf{Unit.} The unit of $(- \times \Tiny) \dashv (\Tiny \to -)$ is a little mysterious. The following rule is precomposition with the unit $\Gamma \to (\Gamma,i : \Tiny, \ctxlock{L})$ substitution.
 \begin{mathpar}
 \inferrule*[left=unit,fraction={-{\,-\,}-}]{\Gamma, i : \Tiny, \ctxlock{L}, \Gamma' \yields a : A}{\Gamma, \Gamma'[\locksub{L}{i}] \yields a[\locksub{L}{i}] : A[\locksub{L}{i}]}
 \end{mathpar}
-We use this syntax for the unit because it behaves a bit like substituting for a variable. It is defined by commuting with everything until it reaches the case
+We use substitution-like syntax for the unit map because it behaves much like substitution: it commutes past everything until it reaches a variable. It then commutes with the keys on the variable, until it reaches the key with the matching label. The annotation $t$ on the key $\varkey{L}{t}$ is then substituted for $i$:
 \begin{align*}
+(\varkey{L'}{t'} \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_1}{s_1} x)[\locksub{L}{i}] &:\defeq \admkey{L'}{t'[\locksub{L}{i}]}(\varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_1}{s_1} x)[\locksub{L}{i}] \\
+(\varkey{L}{t} \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_1}{s_1} x)[\locksub{L}{i}] &:\defeq (\varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_1}{s_1} x)[t[\locksub{L}{i}]/i] \\
+x[\locksub{L}{i}] &:\defeq x
 %(\admkey{L}{t} c) [a/x] &:\defeq \admkey{L}{t[a/x]} c[a/x] \\
-(\varkey{L}{t} c)[\locksub{L}{i}] &:\defeq c[t/i] %\\
+%(\varkey{L}{t} c)[\locksub{L}{i}] &:\defeq c[t[\locksub{L}{i}]/i] %\\
 %(\admkey{K}{t} c)[\locksub{L}{i}] &:\defeq \admkey{K}{t[\locksub{L}{i}]} c[\locksub{L}{i}] &&\lockn{L} \not\defeq \lockn{K}
 \end{align*}
-So the key is deleted, and the term it was carrying is substituted for $i$. Note that both $\lockn{L}$ and $i$ are gone from the resulting term $a[\locksub{L}{i}]$.
-
+Note that both $\lockn{L}$ and $i$ are gone from the resulting term $a[\locksub{L}{i}]$.
 \end{itemize}
+
+\begin{remark}
+The downside of this variable rule is, it could be a little annoying to figure out which variables are allowed to be used for each $t_i$: the context for each $t_i$ is different. But I cannot come up with a good alternative: the first \rulen{var?} rule above is too weak to make \rulen{counit} admissible, and a stronger rule like
+\begin{mathpar}
+\inferrule*[left=var?]{
+\Gamma, x : A, \Gamma' \yields t_i : \Tiny \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma')
+}{\Gamma, x : A, \Gamma' \yields \varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x : \admkeye{\lockn{L}_n}{t_n} \dots \admkeye{\lockn{L}_1}{t_1} A} \and
+\end{mathpar}
+makes $\admkey{L}{t} a$ extremely unpleasant to compute by hand.
+\end{remark}
+
+\begin{remark}
+To be careful, we should have an actual calculus of telescopes $\Gamma \yields \Gamma' \tele$ that $\admkeye{\lockn{L}}{t} -$, $-[\locksub{L}{i}]$ and $-|_{\varkey{L}{t}}$ are defined on.
+\end{remark}
+
 %\begin{remark}
 %If we promise to always push the keys \emph{all} the way to the variables, then we can maybe do away with the lock names. Then $[\lock/i]$ would just match the \emph{outermost} lock that it hits. \mvrnote{Edit: this doesn't work, if you go under another lock-intro then it's not the outermost one any more that gets killed. I suppose you could just count where you are though.}
 %\end{remark}
 
+\begin{remark}
+Some examples of applying keys to terms:
+\begin{align*}
+x : \NN,  y : \NN &\yields x + y : \NN \\
+x : \NN,  y : \NN, \ctxlock{L}, i : \Tiny &\yields \admkey{L}{i}(x + y) : \admkey{L}{i}\NN \\
+&\defeq (\varkey{L}{i}x + \varkey{L}{i}y) : \NN \\
+~\\
+x : \NN &\yields \lambda y. x + y : \NN \to \NN  \\
+x : \NN,\ctxlock{L}, i : \Tiny &\yields \admkey{L}{i}(\lambda y. x + y) : \admkey{L}{i}(\NN \to \NN)  \\
+&\defeq (\lambda y. \varkey{L}{i}x + y) : \NN \to \NN  \\
+~\\
+A : \univ, B : A \to \univ, f : \prd{x : A} B(x) &\yields f : \prd{x : A} B(x) \\
+A : \univ, B : A \to \univ, f : \prd{x : A} B(x), \ctxlock{L}, i : \Tiny &\yields \varkey{L}{i}f : \admkey{L}{i}\left(\prd{x : A} B(x)\right) \\
+&\defeq \varkey{L}{i}f : \prd{x : \varkey{L}{i}A} \admkey{L}{i}(B(x)) \\
+&\defeq \varkey{L}{i}f : \prd{x : \varkey{L}{i}A} (\varkey{L}{i}B)(x)
+\end{align*}
+Applying the counit on the inside vs the middle vs the outside:
+\begin{align*}
+x : \NN,\ctxlock{K}, k : \Tiny &\yields \varkey{K}{k} a : \NN \\
+x : \NN,\ctxlock{K}, k : \Tiny, \ctxlock{L}, i : \Tiny &\yields \admkey{L}{i}(\varkey{K}{k} a) : \NN \\
+&\defeq \varkey{L}{i}\varkey{K}{k} a : \NN \\
+~\\
+x : \NN,\ctxlock{K}, k : \Tiny &\yields \varkey{K}{k} a : \NN \\
+x : \NN,\ctxlock{K}, \ctxlock{L}, i : \Tiny, k : \Tiny &\yields \admkey{L}{i}(\varkey{K}{k} a) : \NN \\
+&\defeq \varkey{L}{i}\varkey{K}{k} a : \NN \\
+~\\
+x : \NN,\ctxlock{K}, k : \Tiny &\yields \varkey{K}{k} a : \NN \\
+x : \NN, \ctxlock{L}, i : \Tiny, \ctxlock{K}, k : \Tiny &\yields \admkey{L}{i}(\varkey{K}{k} a) : \NN \\
+&\defeq \varkey{K}{k}\varkey{L}{i} a : \NN
+\end{align*}
+Applying the unit:
+\begin{align*}
+t : \Tiny,\ctxlock{L}, i : \Tiny &\yields \varkey{L}{i} t : \Tiny \\
+i : \Tiny &\yields (\varkey{L}{i} t)[\locksub{L}{t}] \\
+&\defeq t[i[\locksub{L}{t}]/t] \defeq t[i/t] \defeq i : \Tiny
+\end{align*}
+Because $t$ in $\varkey{L}{t}$ can be any term, keys can be nested:
+\begin{align*}
+x : A, i : \Tiny, \ctxlock{L}, j : \Tiny &\yields \varkey{L}{\varkey{L}{j}i} x : A \\
+x : A, j : \Tiny &\yields \left( \varkey{L}{\varkey{L}{j}i} x\right)[\locksub{L}{i}] \\
+&\defeq x[(\varkey{L}{j}i)[\locksub{L}{i}]/i] \\
+&\defeq x[i[j[\locksub{L}{i}]/i]/i] \\
+&\defeq x[i[j/i]/i] \\
+&\defeq x[j/i] : A
+\end{align*}
+\end{remark}
+
 \section{Type}
 \begin{mathpar}
-\inferrule*[left=$\surd$-intro]{\Gamma, \ctxlock{L} \yields A : \univ}{\Gamma \yields \rform{L} A : \univ} \and
+\inferrule*[left=$\surd$-form]{\Gamma, \ctxlock{L} \yields A : \univ}{\Gamma \yields \rform{L} A : \univ} \and
 \inferrule*[left=$\surd$-intro]{\Gamma, \ctxlock{L} \yields a : A}{\Gamma \yields \rintro{L} a : \rform{L} A} \and
 \inferrule*[left=$\surd$-elim]{\Gamma, i : \Tiny \yields r : \rform{L} A}{\Gamma \yields \relim{i.r} : A[\locksub{L}{i}]} \\
-\relim{i.\rintro{L} a} \defeq a[\locksub{L}{i}] \and r \defeq \rintro{L}{\relim{i. \admkey{L}{i} r}} 
+\relim{i.\rintro{L} a} \defeq a[\locksub{L}{i}] \and r \defeq \rintro{L}{\relim{i. \admkey{L}{i} r}}
 \end{mathpar}
 
-Going under $\rintro{L} a$ means you lose access to all variables, unless you can provide a $t : \Tiny$ to get past $\ctxlock{L}$. And going under $\relim{i.r}$, you can still use anything in the context, and additionally get a bonus $i : \Tiny$. If $A$ is a closed type, we may as well just write $\rformu A$ rather than bind a lock name that doesn't get used.
+Going under $\rintro{L} a$ means all variables get locked by $\ctxlock{L}$, so every use of those variables in $a$ must have a $\varkey{L}{t}$ for some $t : \Tiny$. If $A$ is a closed type, we may as well just write $\rformu A$ rather than bind a lock name that doesn't get used. Going under $\relim{i.r}$, the context remains accessible, and you additionally may use a bonus $i : \Tiny$.
 
+%\begin{itemize}
+%\item \rulen{$\surd$-form/intro}:
+%\item \rulen{$\surd$-elim}:
+%\item \rulen{$\surd$-beta}:
+%\item \rulen{$\surd$-eta}:
+%\end{itemize}
+
+\subsection{Adjunction}
+
+First, we can show a kind of functoriality.
+
+\begin{definition}
+For $f : A \to B$ a \emph{closed} function, define $\rformu f$ by
+\begin{align*}
+\lambda r. \rintro{L}{f(\relim{i.\varkey{L}{i} r})} : \rformu A \to \rformu B
+\end{align*}
+In words, start by assuming $r : \rformu A$. To produce a term of $\rformu B$ we have to produce a term of $B$ when the context is locked behind $\ctxlock{L}$. We have a function $f : A \to B$ available, so we just have to produce a term of $A$ in this locked context. We cannot use $r$ immediately because it is locked behind $\ctxlock{L}$. But we can get a term of $A$ if we can produce a $\rformu A$ using a term $i : \Tiny$. This $i : \Tiny$ is exactly what we need to unlock $r$, via $\varkey{L}{i} r : \rformu{A}$. So we have $\relim{i.\varkey{L}{i} r} : A$, which we can apply $f$ to, and we are done.
+\end{definition}
+
+If $f$ is not closed then this is not well-typed, because $f$ as a variable is not usable under $\rintro{L}{-}$ without itself being unlocked by a term of $\Tiny$. But if all the inputs to the above definition are themselves are under $\rformu$, then we can get access to a function $A \to B$ where we need it.
+\begin{definition}
+For $A,B : \rformu \univ$ and $f : \rform{L}\left((\relim{i.\varkey{L}{i} A}) \to (\relim{i.\varkey{L}{i} B})\right)$, define $\rformu f$ by
+\begin{align*}
+\lambda r. \rintro{L}{(\relim{j.\varkey{L}{j} f})(\relim{i.\varkey{L}{i} r})} : \rform{L}(\relim{i.\varkey{L}{i} A}) \to \rform{L}(\relim{i.\varkey{L}{i} B})
+\end{align*}
+\end{definition}
+
+This is already very noisy, so to cut down on the symbols let us fix some notation: (This cannot be internalised as a function, it is just an admissible piece of syntax)
+\begin{definition}
+If $x : \rform{L} A$ is behind several locks $\ctxlocke{\lockn{K}_1} \dots \ctxlocke{\lockn{K}_n}$, then let
+\begin{align*}
+\rget{x} :\defeq (\relim{i.\varkeye{\lockn{K}_n}{i}\dots\varkeye{\lockn{K}_1}{i} x}) : (\admkeye{\lockn{K}_n}{i}\dots\admkeye{\lockn{K}_1}{i}A)[\locksub{L}{i}]
+\end{align*}
+in particular, if $x : \rform{L} A$ is behind no locks then $\rget{x} : A[\locksub{L}{i}] \defeq A$, because $i$ does not occur in $A$.
+\end{definition}
+
+Using this shorthand, the definition of functoriality is much clearer: For $A,B : \rformu \univ$ and $f : \rform{L}\left(\rget{A} \to \rget{B}\right)$ we have
+\begin{align*}
+\rformu f :\defeq \lambda r. \rintro{L}{\rget{f}(\rget{r})} : \rform{L}\rget{A} \to \rform{L}\rget{B}
+\end{align*}
+
+Now let's look at how $\rformu$ relates to $(\Tiny \to -)$
 \begin{definition}
 If $A : \univ$ is a \emph{closed type}, there are maps
 \begin{align*}
@@ -265,36 +410,7 @@ Let us check that the type of $\varepsilon_B(f) :\defeq \relim{i.f(i)}$ matches 
 \end{align*}
 which is what we wanted.
 
-So why is it not provable that $\Tiny \equiv 1$? Besides $\varepsilon_A$ not being definable for general $A$, we also can't show that $\rformu -$ is `internally functorial'. 
-
-\begin{definition}
-For $f : A \to B$ a \emph{closed} function, define $\rformu f$ by 
-\begin{align*}
-\lambda r. \rintro{L}{f(\relim{i.\varkey{L}{i} r})} : \rformu A \to \rformu B
-\end{align*}
-\end{definition}
-If $f$ is not closed then this is not well-typed, because the variable $f$ is not usable under $\rintro{L}{-}$ without being unlocked by a a term of $\Tiny$. 
-
-If we are given the inputs themselves under $\rformu$, then we have a kind of functoriality. We will very often have assumptions like $x : \rform{L} A$, so to cut down on the noise let us first fix some notation (This cannot be internalised as a function, it is just an admissible piece of syntax)
-\begin{definition}
-If $x : \rform{L} A$ is behind a single lock $\ctxlock{K}$, then let
-\begin{align*}
-\rget{x} :\defeq \relim{i.\varkey{K}{i} x} : (\admkey{K}{i}A)[\locksub{L}{i}]
-\end{align*}
-\end{definition}
-Then functoriality in proper generality is:
-\begin{definition}
-For $A,B : \rformu \univ$ and $f : \rform{L}(\rget{A} \to \rget{B})$, define $\rformu f$ by
-\begin{align*}
-\lambda r. \rintro{L}{\rget{f}(\rget{r})} : \rform{L}\rget{A} \to \rform{L}\rget{B}
-\end{align*}
-\end{definition}
-Expanded, this definition is
-\begin{align*}
-\lambda r. \rintro{L}{(\relim{j.\varkey{L}{j} f})(\relim{i.\varkey{L}{i} r})} : \rform{L}(\relim{i.\varkey{L}{i} A}) \to \rform{L}(\relim{i.\varkey{L}{i} B})
-\end{align*}
-
-So to what extent do we actually get adjointness?
+Why is it not provable that $\Tiny \equiv 1$? Besides $\varepsilon_A$ not being definable for general $A$, we have also seen that $\rformu -$ is not `internally functorial'. So to what extent do we actually get adjointness?
 \begin{proposition}
 If $A$ and $B$ are closed types then there is an equivalence
 \begin{align*}
@@ -335,10 +451,10 @@ and
 \end{proof}
 
 \begin{remark}
-Internal equivalences of this kind have been defined in MTT, where the modality is a positive type former, see~\cite[Proposition 3.4]{transpension} and~\cite[Section 10.4]{mtt}. The fact that this circumvents the `no-go' theorem of \cite{lops} was also noted in \cite[Section 10.1]{transpension}.
+Internal equivalences of this kind for an arbitrary adjoint modality have been defined in MTT, where the modality is instead a positive type former, see~\cite[Proposition 3.4]{transpension} and~\cite[Section 10.4]{mtt}. The fact that this circumvents the `no-go' theorem of \cite{lops} was also noted in \cite[Section 10.1]{transpension}.
 \end{remark}
 
-Happily, we can allow $A$ and $B$ to be dependent:
+Happily, we can allow $A$ and $B$ to be dependent types:
 \begin{proposition}\label{prop:adj}
 For any $A : \univ$ and $B : \rformu \univ$, there is an equivalence
 \begin{align*}
@@ -350,12 +466,27 @@ And in fact, we can also let $B$ depend on $A$:
 \begin{proposition}\label{prop:dep-adj}
 For any $A : \univ$ and $B : A \to \rformu \univ$, there is an equivalence
 \begin{align*}
-\left(\prd{a:A} \rform{L} \relim{i.(\varkey{L}{i}B)(\varkey{L}{i}a)}\right) \equiv \rform{L} \left(\prd{f:\prd{t:\Tiny} \varkey{L}{t}A} \relim{i.(\varkey{L}{i}B)(f(i))}\right)
+\left(\prd{a:A} \rform{L} \rget{(B(a))}\right) \equiv \rform{L} \left(\prd{f:\prd{t:\Tiny} \varkey{L}{t}A} \relim{i.(\varkey{L}{i}B)(f(i))}\right)
 \end{align*}
-with maps defined the same way as above.
+with maps defined the same way as above. \mvrnote{The notation here is so heavy that it's hard to see the original adjunction underneath it...}
 \end{proposition}
 
-%But we are actually running into the weak variable rule issue already. We want the type of the second one to be $\rformu((\Tiny \to A) \to B) \to \rform{K}(A \to \rform{L} B)$, but because of the two contexts locks $\ctxlock{\lockn{K}}$ and $\ctxlock{\lockn{L}}$, we actually can't access $g$ where we need to. 
+\mvrnote{Might be good to have a `pattern matching' syntax for $\rintro{L}{-}$ e.g.}
+\begin{align*}
+f(x,y,\ctxlock{L},z) :\defeq a
+\end{align*}
+meaning
+\begin{align*}
+f :\defeq \lambda x. \lambda y. \rintro{L}{\lambda z. a}
+\end{align*}
+
+We could take this even further, and use this kind of syntax when eliminating $\rform{}$: If we have such a closed $f$ then maybe we should be able to write, say
+\begin{align*}
+g(w,\ctxlock{K},v) :\defeq f(v,v,\ctxlock{L}, w)
+\end{align*}
+first in first out!
+
+%But we are actually running into the weak variable rule issue already. We want the type of the second one to be $\rformu((\Tiny \to A) \to B) \to \rform{K}(A \to \rform{L} B)$, but because of the two contexts locks $\ctxlock{\lockn{K}}$ and $\ctxlock{\lockn{L}}$, we actually can't access $g$ where we need to.
 
 %\begin{lemma}
 %If $A$ is closed, the triangle identities hold:
@@ -395,6 +526,57 @@ with maps defined the same way as above.
 %\end{align*}
 %\end{proof}
 
+\subsection{Comonad}
+$\rformu$ is supposed to be a comonad, because it is right adjoint to the monad $(\Tiny \to -)$. We could get the comonad structure from the above adjunction, but the maps are easy to define directly:
+
+\begin{proposition}
+$\rform{}$ is a comonad, where for any $A : \rformu \univ$,
+\begin{alignat*}{2}
+\varepsilon_A &:\defeq (\lambda r. \relim{\_.r}) &&: \rform{L} \rget{A} \to \rget{A} \\
+\delta_A &:\defeq (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) &&: \rform{L} \rget{A} \to \rform{J} \rform{K} \rget{A}
+\end{alignat*}
+\end{proposition}
+\begin{proof}
+Checking these by hand is a pain, a proof assistant would be convinced by $\refl{}$.
+\begin{align*}
+\rformu \varepsilon_A \circ \delta_A
+&:\defeq \rformu (\lambda r. \relim{\_.r}) \circ (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) \\
+&:\defeq \lambda r. \rintro{L}{(\lambda r. \relim{\_.r})(\relim{i.\varkey{L}{i}r})} \circ (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) \\
+&\defeq \lambda r. \rintro{L}{\relim{\_.\relim{i.\varkey{L}{i}r}}} \circ (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) \\
+&\defeq \lambda r. \rintro{L}{\relim{\_.\relim{i.\admkey{L}{i}\rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}r}}}}}} \\
+&\defeq \lambda r. \rintro{L}{\relim{\_.\relim{i.\rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}\varkey{L}{i}r}}}}}} \\
+&\defeq \lambda r. \rintro{L}{\relim{\_.\rintro{K}{\relim{l.\varkey{K}{l}\varkey{L}{l}r}}}} \\
+&\defeq \lambda r. \rintro{L}{\relim{l.\varkey{L}{l}r}} \\
+&\defeq \lambda r. r \\
+~\\
+\varepsilon_{\rform{J} A} \circ \delta_A &:\defeq (\lambda r. \relim{\_.r}) \circ (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) \\
+&\defeq \lambda r. \relim{\_.\rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}r}}}} \\
+&\defeq \lambda r. \rintro{K}{\relim{l.\varkey{K}{l}r}} \\
+&\defeq \lambda r. r \\
+\end{align*}
+\begin{align*}
+\rformu \delta_A \circ \delta_A
+&:\defeq \rformu (\lambda s'. \rintro{J'}{\rintro{K'}{\relim{l'.\varkey{K'}{l'}\varkey{J'}{l'}s'}}})  \circ (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) \\
+&:\defeq (\lambda r. \rintro{M}{\rintro{J'}{\rintro{K'}{\relim{l'.\admkey{K'}{l'}\admkey{J'}{l'}\relim{i.\varkey{M}{i}{r}}}}}})  \circ (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) \\
+&\defeq (\lambda r. \rintro{M}{\rintro{J'}{\rintro{K'}{\relim{l'.\relim{i.\varkey{K'}{l'}\varkey{J'}{l'}\varkey{M}{i}{r}}}}}})  \circ (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) \\
+&\defeq \lambda r. \rintro{M}{\rintro{J'}{\rintro{K'}{\relim{l'.\relim{i.\admkey{K'}{l'}\admkey{J'}{l'}\admkey{M}{i}{\rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}r}}}}}}}}} \\
+&\defeq \lambda r. \rintro{M}{\rintro{J'}{\rintro{K'}{\relim{l'.\relim{i.{\rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}\varkey{K'}{l'}\varkey{J'}{l'}\varkey{M}{i}r}}}}}}}}} \\
+&\defeq \lambda r. \rintro{M}{\rintro{J'}{\rintro{K'}{\relim{l'.\rintro{K}{\relim{l.\varkey{K}{l}\varkey{K'}{l'}\varkey{J'}{l'}\varkey{M}{l}s}}}}}} \\
+&\defeq \lambda r. \rintro{M}{\rintro{J'}{\rintro{K'}{\relim{l.\varkey{K'}{l}\varkey{J'}{l}\varkey{M}{l}r}}}} \\
+~\\
+\delta_{\rformu A} \circ \delta_A
+&:\defeq (\lambda s'. \rintro{J'}{\rintro{K'}{\relim{l'.\varkey{K'}{l'}\varkey{J'}{l'}s'}}}) \circ (\lambda s. \rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s}}}) \\
+&\defeq \lambda s'. \rintro{J'}{\rintro{K'}{\relim{l'.\admkey{K'}{l'}\admkey{J'}{l'}\rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}s'}}}}}} \\
+&\defeq \lambda s'. \rintro{J'}{\rintro{K'}{\relim{l'.\rintro{J}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{J}{l}\varkey{K'}{l'}\varkey{J'}{l'}s'}}}}}} \\
+&\defeq \lambda s'. \rintro{J'}{\rintro{K'}{\rintro{K}{\relim{l.\varkey{K}{l}\varkey{K'}{l}\varkey{J'}{l}s'}}}}
+\end{align*}
+which up to $\alpha$-equivalence is the same as the previous.
+\end{proof}
+$\rformu$ is not typically idempotent, unless $\Tiny$ is a proposition.
+
+\subsection{Left-Exactness}
+
+We can show that, as a right adjoint, $\rform{}$ preserves pullbacks.
 \begin{proposition}[$\rformu$ preserves 1]
 $\rformu{1} \equiv 1$
 \end{proposition}
@@ -465,9 +647,9 @@ $(\rintro{L}{\rget{r}} = \rintro{L}{\rget{s}}) \equiv \rform{L} \left( \rget{r} 
 %\code &: \rform{L}{(\prd{t : \Tiny} \varkey{L}{t}A(t))} \to \rform{L}{(\prd{t : \Tiny} \varkey{L}{t}A(t))} \to \univ \\
 %\code(u,v) &:\defeq \rform{L} \left(\prd{t : \Tiny} \rget{u}(t) = \rget{v}(t)\right)
 %\end{align*}
-%so that 
+%so that
 %\begin{align*}
-%\code(\rintro{L}{\lambda t. \varkey{L}{t} a(t)}, \rintro{L}{\lambda t. \varkey{L}{t} a'(t)}) 
+%\code(\rintro{L}{\lambda t. \varkey{L}{t} a(t)}, \rintro{L}{\lambda t. \varkey{L}{t} a'(t)})
 %&\defeq \rform{L} \left( \prd{t : \Tiny} \varkey{L}{t} a(t) = \varkey{L}{t} a'(t) \right)
 %\end{align*}
 %\begin{align*}
@@ -479,12 +661,12 @@ $(\rintro{L}{\rget{r}} = \rintro{L}{\rget{s}}) \equiv \rform{L} \left( \rget{r} 
 %\end{proof}
 
 \begin{remark}
-It feels a bit like these keys are just delayed substitutions, so let's try and make something interesting happen. Suppose we have two global elements $0,1 : \Tiny$, and consider the terms
+It is feeling a bit like these keys are just delayed substitutions, so let's try and make something interesting happen. Suppose we have two global elements $0,1 : \Tiny$, and consider the terms
 \begin{align*}
 \lambda(i,j). \rintro{L}{\varkey{L}{0} i, \varkey{L}{1} j} &: \Tiny \times \Tiny \to \rformu(\Tiny \times \Tiny) \\
-(\lambda i. \relim{j. x(i,j)}, \lambda j. \relim{i. x(i,j)}) &: (\Tiny \to \Tiny, \Tiny \to \Tiny)
+(\lambda i. \relim{j. f(i,j)}, \lambda j. \relim{i. f(i,j)}) &: (\Tiny \to \Tiny, \Tiny \to \Tiny)
 \end{align*}
-Then substituting the first in for $x$ in the second gives
+Then substituting the first in for $f$ in the second gives
 \begin{align*}
 &(\lambda i. \relim{j. (\lambda(i,j). \rintro{L}{\varkey{L}{0} i, \varkey{L}{1} j})(i,j)}, \lambda j. \relim{i. (\lambda(i,j). \rintro{L}{\varkey{L}{0} i, \varkey{L}{1} j})(i,j)}) \\
 &\defeq (\lambda i. \relim{j. \rintro{L}{\varkey{L}{0} i, \varkey{L}{1} j}}, \lambda j. \relim{i. \rintro{L}{\varkey{L}{0} i, \varkey{L}{1} j}}) \\
@@ -525,7 +707,7 @@ This pullback simplifies, because $\rformu$ commutes with $\Sigma$. The map on t
 \begin{align*}
 \proj_1 : \sm{X : \rformu \univ} \rform{K}{(\rget{X} \to \rget{B})} \to \rformu \univ
 \end{align*}
-And so calculating the pullback, 
+And so calculating the pullback,
 \begin{align*}
 &\rform{L}{(\rget{X} \to \rget{B})}[\rintro{K}{(\lambda s. \varkey{K}{s} t) = \id_\Tiny}/X] \\
 &\defeq \rform{L}{(\relim{l.\varkey{L}{l} X} \to \rget{B})}[\rintro{K}{(\lambda s. \varkey{K}{s} t) = \id_\Tiny}/X] \\
@@ -577,7 +759,7 @@ Then
 &\equiv \rform{L} \left(\left(\prd{s:\Tiny}\sm{t : \Tiny} {a : (\varkey{L}{s}A)(t)} (t = s) \right)\to \rget{B} \right) && \text{(Univ. property of $\Sigma$)} \\
 &\equiv \rform{L} \left(\left(\prd{s:\Tiny} (\varkey{L}{s}A)(s)\right) \to \rget{B} \right) && \text{(Contractible pair)}
 \end{align*}
-which up to $\alpha$-renaming $s$ to $t$, is what we wanted to show.
+which $\alpha$-renaming $s$ to $t$, is what we wanted to show.
 \end{proof}
 
 \begin{corollary}
@@ -599,7 +781,7 @@ Plug in $A \defeq \const_1$ in the above.
 %\mathsf{form}(f) :\defeq \lambda a. \rintro{L}{ (\varkey{L}{0} f)(\lambda t. \varkey{L}{t} a)} : (A \to \rform{?} B)
 %\end{align*}
 %
-%If $g : (A \to \rform{?} B)$, then can define 
+%If $g : (A \to \rform{?} B)$, then can define
 %\begin{align*}
 %\mathsf{function}(g) :\defeq \lambda h. \relim{i. g(h(i))} : ((\Tiny \to A) \to B)
 %\end{align*}
@@ -612,7 +794,7 @@ Plug in $A \defeq \const_1$ in the above.
 %&\defeq \lambda a. \rintro{L}{ (\mathsf{function}(\varkey{L}{0} g))(\lambda t. \varkey{L}{t} a)} \\
 %&\defeq \lambda a. \rintro{L}{ (\lambda h. \relim{i. (\varkey{L}{0} g)(h(i))})(\lambda t. \varkey{L}{t} a)} \\
 %&\defeq \lambda a. \rintro{L}{ \relim{i. (\varkey{L}{0} g)((\lambda t. \varkey{L}{t} a)(i)))}} \\
-%&\defeq \lambda a. \rintro{L}{ \relim{i. (\varkey{L}{0} g)(\varkey{L}{i} a)}} 
+%&\defeq \lambda a. \rintro{L}{ \relim{i. (\varkey{L}{0} g)(\varkey{L}{i} a)}}
 %\end{align*}
 %And the other:
 %\begin{align*}
@@ -630,7 +812,7 @@ Plug in $A \defeq \const_1$ in the above.
 %\begin{mathpar}
 %\inferrule*[left=$\surd$-intro]{\Gamma, \ctxlock{L} \yields B \type \and \Gamma \yields t : \Tiny}{\Gamma \yields \rdepform{t}{B} \type} \and
 %\inferrule*[left=$\surd$-intro]{\Gamma \yields t' : \Tiny \and \Gamma, \ctxlock{L} \yields t : \Tiny \and \Gamma, \ctxlock{L} \yields a : A(t) \and \Gamma, \ctxlock{L}, f : \prd{t : \Tiny} A \yields b : B}{\Gamma \yields \rintro{L}{f.b,t,a} : \rdepform{t}{B}} \and
-%\inferrule*[left=$\surd$-elim]{\Gamma, i : \Tiny \yields r : \rdepform{i}{B}}{\Gamma \yields \relim{i.r} : B} 
+%\inferrule*[left=$\surd$-elim]{\Gamma, i : \Tiny \yields r : \rdepform{i}{B}}{\Gamma \yields \relim{i.r} : B}
 %\end{mathpar}
 %where we need \emph{two} terms of $\Tiny$ in the intro rule, one to use in the function $f$, and the second to get past the resulting lock in the conclusion.
 
@@ -641,7 +823,7 @@ A surprising fact is that the pullback $\Delta_G \Tiny$ is tiny in any slice $\m
 G \ar[r, "\eta" swap] & \rformu (\Tiny \to G)
 \end{tikzcd}
 \]
-where $c : G \to (\Tiny \to G)$ is the transpose of $G \times \Tiny \to G$. 
+where $c : G \to (\Tiny \to G)$ is the transpose of $G \times \Tiny \to G$.
 
 In more type theoretic language, for a type $\Gamma \yields D : \univ$, this is
 \[
@@ -656,70 +838,337 @@ and we can calculate this out to something that almost works in general, $\surd^
 \end{align*}
 \mvrnote{come back to this}
 
-\section{Contraction}
-
-The eliminator gives a counit map $\lambda r. \relim{i.r} : \rform{L} A \to A$ for any closed $A$. But already when trying to define comultiplication we get bitten by that weak variable rule. We want to write 
-\begin{align*}
-\lambda r. \rintro{L}{\rintro{K}{\relim{i.\varkey{K}{i} \varkey{L}{i} r}}} : \rformu A \to \rformu \rformu A
-\end{align*}
-but $\varkey{K}{i} \varkey{L}{i} r$ is not well-formed: after $\varkey{K}{i}$ we no longer have access to $i$.
-
-There are a couple of alternative ideas for how variables could work, but each has implications for the admissible rules.
-\begin{itemize}
-\item \textbf{Keep Full Context.} A more powerful option would be to keep the same context for each $t_i$.
-\begin{mathpar}
-\inferrule*[left=var?]{
-\Gamma, x : A, \Gamma' \yields t_i : \Tiny \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma')
-}{\Gamma, x : A, \Gamma' \yields \varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x : \admkeye{\lockn{L}_n}{t_n} \dots \admkeye{\lockn{L}_1}{t_1} A} \and
-\end{mathpar}
-This is building in some kind of contraction for $\Tiny$. The downside is that calculating $\admkey{L}{t} a$ is weirder: we would need to remember the $\ctxlock{K}$ that we go under in the term $a$, and then adjust $\admkey{L}{t}$ so that $t$ is still a valid term. With this variable rule, we define:
-\begin{align*}
-\admkeye{\lockn{L}}{t}  \left(\varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{K}_i}{s_i} \dots \varkeye{\lockn{K}_1}{s_1} x\right) :\defeq \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{L}}{\admkeye{\lockn{K}_n}{s_n} \dots \admkeye{\lockn{K}_{i+1}}{s_{i+1}} t}  \varkeye{\lockn{K}_i}{s_i} \dots \varkeye{\lockn{K}_1}{s_1} x
-\end{align*}
-and then the map $\rformu A \to \rformu \rformu A$ is definable. Maybe it makes sense to order the keys the other way around in this style.
-
-\item \textbf{Fully General Counit.} If you build a substitution for $i : \Tiny$ into
-\begin{mathpar}
-\inferrule*[left=counit?,fraction={-{\,-\,}-}]{\Gamma,\Gamma' \yields a : A}{\Gamma, \ctxlock{L}, i : \Tiny, \admkey{L}{t}\Gamma' \yields \admkey{L}{t} a : \admkey{L}{i} A}
-\end{mathpar}
-then the fully general counit should be
-\begin{mathpar}
-\inferrule*[left=counit?,fraction={-{\,-\,}-}]{\Gamma,\Gamma' \yields a : A \and \Gamma, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields \admkey{L}{t} a : \admkey{L}{t} A}
-\end{mathpar}
-which looks a bit psycho, with $t$ appearing in its own context.
-
-The variable rule should match this: for a single lock,
-\begin{mathpar}
-\inferrule*[left=var?,fraction={-{\,-\,}-}]{\Gamma_1,x : A,\Gamma_2, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields t : \Tiny}{\Gamma_1,x : A,\Gamma_2, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields \varkey{L}{t} x : \admkey{L}{t} A}
-\end{mathpar}
-and there would be some complicated n-ary version. This would also solve the contraction problem, but the form of the conclusion doesn't look stable under substitution absent some crazy trick.
-\end{itemize}
-
-We could then extend the $\rget{x}$ notation to get past any number of locks:
+\section{$\Tiny$-discreteness}
 \begin{definition}
-If $x : \rform{L} A$ is behind locks $\ctxlocke{\lockn{K}_1}, \dots,\ctxlocke{\lockn{K}_n}$, then let
-\begin{align*}
-\rget{x} :\defeq \relim{i.\varkeye{\lockn{K}_n}{i}\dots\varkeye{\lockn{K}_1}{i} x}
-\end{align*}
+A type $A : \univ$ is \emph{$\Tiny$-discrete} if the weakening map $A \to (\Tiny \to A)$ is an equivalence.
 \end{definition}
 
-In some settings, like BCH cubes~\cite{bch:cubes}, there is a semicartesian monoidal product $\otimes$, and the interval $\mathbb{I}$ is tiny not for $\to$, but $\lolli$. Interestingly, the existing \rulen{$\rformu$-elim} rule would be derivable, because of first precomposing with the map $\Gamma \otimes I \to \Gamma \times I$. We also do not need to worry about the unit, because it is only ever used with a context literally of the form $(\Gamma \otimes i : \Tiny), \ctxlock{L}$.
+\mvrnote{In \cite{yetter:tiny} it is proven that $\Tiny$-discrete objects form a reflective and coreflective subcategory, at least in the 1-topos case. Does it work here? We can use a nullification HIT to build the reflection, but I can't get that to be equivalent to the coequaliser definition in Yetter}
+\iffalse
+\section{Path Types}
+\newcommand{\coe}{\mathsf{coe}}
+\newcommand{\coh}{\mathsf{coh}}
+\newcommand{\OTO}{\mathsf{IsOTO}}
+\newcommand{\oto}{\mathsf{oto}}
 
-And so the only place an affineness restriction can come into play is in the counit/variable rule, where we build in a term of $\Tiny$. \mvrnote{come back to this}
- 
-\section{Pushouts}
-Because $(\Tiny \to -)$ is now a left adjoint, it should preserve e.g. pushouts. Let $(f,g) : A \leftarrow S \to B$ and consider the pushout $A +_S B$. First, supposing the inputs are closed, Prop~\ref{prop:closed-adj},
+I am strongly reminded of~\cite[Section 2.3]{altenkirch-kaposi:without-interval}, whose $\Gamma^=$ looks an awful lot like our $\Gamma, \lock$ supposing two points $0, 1 : \Tiny$, and whose `logical relation at a type' looks an awful lot like a pair of maps
 \begin{align*}
-&\rform{L} (\Tiny \to A +_S B) \to C)\\
-&\equiv (A +_S B \to \rform{L} C) \\
-&\equiv \sm{h : A \to \rform{L} C}{k : B \to \rform{L} C} \prd{s : S} h(f(s)) = k(g(s)) \\
-&\equiv \sm{h : \rform{L} (\Tiny \to A) \to C}{k : \rform{L} (\Tiny \to B) \to C} \prd{s : S} \rintro{L}{\rget{h}(\lambda j.(\varkey{L}{j} f)(\varkey{L}{j} s))} =\rintro{L}{\rget{k}(\lambda j.(\varkey{L}{j} g)(\varkey{L}{j} s))} \\
-&\equiv \sm{h : \rform{L} (\Tiny \to A) \to C}{k : \rform{L} (\Tiny \to B) \to C} \prd{s : S} \rform{L}{\left(\rget{h}(\lambda j.(\varkey{L}{j} f)(\varkey{L}{j} s)) = \rget{k}(\lambda j.(\varkey{L}{j} g)(\varkey{L}{j} s))\right)} \\
-&\equiv \sm{h : \rform{L} (\Tiny \to A) \to C}{k : \rform{L} (\Tiny \to B) \to C} \rform{L}{\left(\prd{p : \Tiny \to S} \rget{h}(\lambda j.(\varkey{L}{j} f)(p(j))) = \rget{k}(\lambda j.(\varkey{L}{j} g)(p(j)))\right)} ? \\
-&\equiv \rform{L} \left( \sm{h :(\Tiny \to A) \to C}{k : (\Tiny \to B) \to C} \prd{p : \Tiny \to S} h(\lambda j.(\varkey{L}{j} f)(p(j))) = k(\lambda j.(\varkey{L}{j} g)(p(j)))\right) \\
-&\equiv \rform{L} \left((\Tiny \to A) +_{\Tiny \to S} (\Tiny \to B) \to C\right) 
+(-)^{*T} &: \prd{A:\univ} \rform{L}\left(\varkey{L}{0}A \to \varkey{L}{1}A \to \univ\right) \\
+(-)^{*t} &: \prd{\{A:\univ\}} {a : A}  \rform{L}\left((\rget{A})^{*T}(\varkey{L}{0}a,\varkey{L}{1}a)\right)
 \end{align*}
-which is what we hoped. 
+(where $A : \univ$ is implicit in the second map) or combining them into one map
+\begin{align*}
+(-)^* &: \prd{\{A:\univ\}} {a : A} \rform{L}\left(\rget{(\univ^*(A))}(\varkey{L}{0}a,\varkey{L}{1}a)\right)
+\end{align*}
+relying on the definition
+\begin{align*}
+\univ^* :\defeq \rintro{L}{\lambda A. \lambda B. A \to B \to \univ}
+\end{align*}
+
+\subsection{IsEquiv}
+
+Following~\cite[Section 2.8]{altenkirch-kaposi:without-interval}, what we really want is for paths in $\univ$ to be equivalences. We instead want something like
+\begin{align*}
+(-)^* &: \prd{\{A:\univ\}} {a : A} \rform{L}\left(\proj_1 \rget{(\univ^*(A))}(\varkey{L}{0}a,\varkey{L}{1}a)\right) \\
+\univ^* &:\defeq \rintro{L}{\lambda A.\lambda B. \sm{R: A \to B \to \univ} \prd{a : A} \isContr(\sm{b : B} R(a,b)) \times \prd{b : B} \isContr(\sm{a : A} R(a,b))}
+\end{align*}
+The actual $\univ^*$ that they use is, for all $A,B : \univ$, the iterated $\Sigma$ of
+\begin{align*}
+R &: A \to B \to \univ \\
+\coe^0 &: A \to B \\
+\coh^0 &: \prd{x:A} R(x, \coe^0 x) \\
+\coe^1 &: B \to A \\
+\coh^1 &: \prd{y : B} R(\coe^1 y, y) \\
+&\dots
+\end{align*}
+(plus a couple more fields)
+
+The hard one in that paper is $\Pi$-types, so let's skip to trying to define $(A \to B)^*$ for $A,B : \univ$. Under a lock $\ctxlock{L}$ we have to produce
+\begin{align*}
+(A \to B)^* &: (\varkey{L}{0}A \to \varkey{L}{0}B)\to (\varkey{L}{1}A \to \varkey{L}{1}B) \to \univ \\
+\coe^0 &: (\varkey{L}{0}A \to \varkey{L}{0}B)\to (\varkey{L}{1}A \to \varkey{L}{1}B) \\
+\coh^0 &: \prd{f : \varkey{L}{0}A \to \varkey{L}{0}B} R(f, \coe^0 f) \\
+\coe^1 &: (\varkey{L}{1}A \to \varkey{L}{1}B) \to (\varkey{L}{0}A \to \varkey{L}{0}B)  \\
+\coh^1 &: \prd{g : \varkey{L}{1}A \to \varkey{L}{1}B } R(\coe^1 g, g)
+\end{align*}
+The relation is defined is defined by pointwise relatedness:
+\begin{align*}
+(A \to B)^*(f_0, f_1) :\defeq \prd{x_0 : \varkey{L}{0}A}{x_1 : \varkey{L}{1}A}{r : \rget{(A^*)}(x_0, x_1)} \rget{(B^*)}(f_0(x_0), f_1(x_1))
+\end{align*}
+The $\coe$ can be defined easily
+\begin{align*}
+\coe^0(f_0,a_1) :\defeq \rget{(\coe^0_B)}(f_0(\rget{(\coe^1_A)}(a_1)))
+\end{align*}
+and now $\coh$ is the interesting one, but here we get stuck.
+
+We can sort of define filling the `top' of a box for any $A : \univ$
+\begin{align*}
+\mathsf{top}_A &: \rform{L} \left(\prd{x_0 : \varkey{L}{0}A}{x_1 : \varkey{L}{1}A} \rform{K} \left( (\relim{i. \varkey{K}{0} \varkey{L}{i} A^*})(\varkey{K}{0}x_0, \varkey{K}{0} x_1) \to (\relim{i. \varkey{K}{1} \varkey{L}{i} A^*})(\varkey{K}{1}x_0, \varkey{K}{1} x_1) \right) \right) \\
+\mathsf{top}_A &:\defeq \rintro{L}{\lambda x_0. \lambda x_1. \rintro{K}{\relim{k.\coe^0_{(\relim{i. \varkey{K}{k}\varkey{L}{i} A^*})(\varkey{K}{k}x_0,\varkey{K}{k}x_1)}}}}
+\end{align*}
+But this isn't enough, we need to allow arbitrary relations for $x_0$ and $x_1$, not just `refl'. And here we truly are stuck, because we don't have a substitution roughly like $x_0, x_1, R(x_0, x_1) \yields x, \ctxlock{L}$.
+
+Would need a backwards map
+\begin{align*}
+? &: \prd{A:\univ} \rform{L}\left(\sm{x_0 : \varkey{L}{0}A}{x_1 : \varkey{L}{1}A} \rget{A^*}(x_0, x_1) \to \prd{t:\Tiny} \varkey{L}{t}A \right)
+\end{align*}
+that computes, is such a thing reasonable? This is feeling not good.
+
+\subsection{OTO}
+
+Mike had a different suggestion in his MURI talk for how the relation on $\univ$ should work. I am going to try and write this using a $\rformu$. For a relation $R : A \to B \to \univ$, coinductively $\OTO(R)$ has destructors
+\begin{align*}
+\OTO(R) &\to \left(\prd{a : A} \sm{b : B} R(a,b)\right) \times \left(\prd{b : B} \sm{a : A} R(a,b)\right) \\
+%\OTO(R) &\to \rform{L} \prd{a_0 : \varkey{L}{0}A}{b_0 : \varkey{L}{0}B}{r_0 : (\varkey{L}{0}R)(a_0,b_0))}{a_1 : \varkey{L}{1}A}{b_1 : \varkey{L}{1}B}{r_1 : (\varkey{L}{1}R)(a_1,b_1))} \\
+%&\quad\quad\quad \OTO\left(\lambda a_2. \lambda b_2. (\proj_1 \rget{R^*}(a_0, a_1, a_2)(b_0,b_1,b_2))(r_0,r_1)\right)
+\OTO(R) &\to \prd{a : A}{b : B}{r : R(a,b)} \rform{L} \OTO\left(\relim{i.(\varkey{L}{i}R)^*}\right)
+\end{align*}
+This relies on the definition of $\univ^*$ and $(A \to B)^*$ being the ones below.
+
+Let's name things in a similar way to the cubical paper, and call $R$ and the non-recursive fields of $\OTO(R)$
+\begin{align*}
+\coe &: A \to B \\
+\coh &: \prd{x:A} \Id(x, \coe x) \\
+\coe^{-1} &: B \to A \\
+\coh^{-1} &: \prd{y : B} \Id(\coe^{-1} y, y)
+\end{align*}
+and, the recursive one, say
+\begin{align*}
+\partial R(\ctxlock{L}, a_0, b_0, r_0, a_1, b_1, r_1) : \OTO\left(\lambda a_2. \lambda b_2. (\proj_1 \rget{R^*}(a_0, a_1, a_2)(b_0,b_1,b_2))(r_0,r_1)\right)
+\end{align*}
+And let's also give a name to the first component of $\univ^*$:
+\begin{align*}
+\Id &: \prd{A : \univ} \rform{L}\left(\varkey{L}{0}A \to \varkey{L}{1}A \to \univ \right)
+\end{align*}
+so that for an ordinary term $a : A$,
+\begin{align*}
+a^* : \rform{L} \Id_A(\ctxlock{L}, \varkey{L}{0}a, \varkey{L}{1}a)
+\end{align*}
+
+Now the actual definitions:  (using the pattern-matching notation)
+\begin{align*}
+\Id_\univ(\ctxlock{L},A,B) &:\defeq \sm{R : A \to B \to \univ} \OTO(R) \\
+\coe_\univ(\ctxlock{L}) &: \univ \to \univ \\
+\coe_\univ(\ctxlock{L}) &:\defeq \id_\univ \\
+\coh_\univ(\ctxlock{L}) &: \prd{A : \univ} \sm{R : A \to A \to \univ} \OTO(R) \\
+\coh_\univ(\ctxlock{L}, A) &:\defeq (\rget{\Id_A}, \coe_A, \dots) \\
+%\partial_\univ(\ctxlock{L},\ctxlock{K}, A_0, B_0, r_0, A_1, B_1, r_1) &:
+\end{align*}
+Now let's think about the recursive field. We at least need
+\begin{align*}
+\partial\coe_\univ(\ctxlock{L},\ctxlock{K}, A_0, B_0, r_0, A_1, B_1, r_1, a_2, b_2) &: ?
+\end{align*}
+where
+\begin{align*}
+A_0, B_0, A_1, B_1 &: \univ \\
+r_0 &: \Id_\univ(A_0, B_0) \\
+r_1 &: \Id_\univ(A_1, B_1) \\
+a_2 &: \Id_\univ(A_0, A_1) \\
+b_2 &: \Id_\univ(B_0, B_1)
+\end{align*}
+
+
+\begin{align*}
+\Id_{\prd{x:A}B(x)}(\ctxlock{L}) &: \prd{x:\varkey{L}{0}A} \varkey{L}{0} B(x) \to \prd{x:\varkey{L}{1}A} \varkey{L}{1} B(x) \to \univ \\
+\Id_{\prd{x:A}B(x)}(\ctxlock{L}, f_0, f_1) &:\defeq \prd{p : \prd{i:\Tiny} \varkey{L}{i} A} \Id_{B?}(\ctxlock{L}, f_0(p(0)), f_1(p(1))) \\
+\coe_{\prd{x:A}B(x)}(\ctxlock{L}) &: \prd{x:\varkey{L}{0}A} \varkey{L}{0} B(x) \to \prd{x:\varkey{L}{1}A} \varkey{L}{1} B(x) \\
+\coe_{\prd{x:A}B(x)}(\ctxlock{L},f_0,a_1) &:\defeq \coe_{B?}(f_0(\coe_A^{-1}(a_1))) \\
+\coh_{\prd{x:A}B(x)}(\ctxlock{L}) &: \prd{f : \prd{x:\varkey{L}{0}A} \varkey{L}{0} B(x)} \Id_{\prd{x:A}B(x)}(\ctxlock{L}, f, \coe_{\prd{x:A}B(x)}(\ctxlock{L}, f)) \\
+\coh_{\prd{x:A}B(x)}(\ctxlock{L}, f, p) &:\defeq ? \\
+(\lambda x. b)^*(\ctxlock{L}) &: \prd{p : \prd{i:\Tiny} \varkey{L}{i} A} \Id_{B?}(\ctxlock{L}, (\varkey{L}{0}b)[p(0)/x], (\varkey{L}{1}b)[p(1)/x]) \\
+(\lambda x. b)^*(\ctxlock{L},p) &:\defeq \relim{i.((\varkey{L}{i}b)[p(i)/x])^*} \\
+(f(a))^*(\ctxlock{L}) &:\defeq f^*(\ctxlock{L},\lambda i. \varkey{L}{i} a)
+\end{align*}
+
+
+\begin{align*}
+(\code(\Sigma_A B) : \univ)^*(\ctxlock{L}) &:\defeq ? \\
+\end{align*}
+
+OLD: This relies on the definition of $(A \to B)^*$ being pointwise relatedness, so that $\rget{R^*}$ has type
+\begin{align*}
+\rget{R^*} &: \prd{a_0 : \varkey{L}{0}A}{a_1 : \varkey{L}{1}A}{a_2 : \rget{A^*}(a_0,a_1)}{b_0 : \varkey{L}{0}B}{b_1 : \varkey{L}{1}B}{b_2 : \rget{B^*}(b_0,b_1)}  \\
+&\qquad (\univ^*)((\varkey{L}{0} R)(a_0,b_0), (\varkey{L}{1} R)(a_1,b_1))
+\end{align*}
+and we have also already chosen
+\begin{align*}
+(\univ^*)((\varkey{L}{0} R)(a_0,b_0), (\varkey{L}{1} R)(a_1,b_1)) :\defeq
+\sm{S : (\varkey{L}{0} R)(a_0,b_0) \to (\varkey{L}{1} R)(a_1,b_1) \to \univ} \dots
+\end{align*}
+and so we have to project out that first part so that we can evaluate it at $(r_0,r_1)$.
+
+Actually now $\rget{R^*}$ has type
+\begin{align*}
+\rget{R^*} &: \prd{a : \prd{i:\Tiny} \varkey{L}{i} A}{b : \prd{i:\Tiny} \varkey{L}{i} B}  \\
+&\qquad \proj_1 \Id_{\univ}((\varkey{L}{0} R)(a(0),b(0)), (\varkey{L}{1} R)(a(1),b(1)))
+\end{align*}
+
+\mvrnote{Well, now I'm stuck again. The only idea I have left is to build in endpoints into the context $\ctxlock{L}$ somehow, maybe following the altenkirch/kamposi idea. (and change the type rules).}
+
+\mvrnote{I had to change the definition of $\Id_{\prd{x:A}B(x)}(\ctxlock{L}, f_0, f_1) $ because I was getting stuck when defining $(\lambda x. b)^*$. The old way, where you use a relation between $a0$ and $a1$, there does not appear to be any way to construct the $\Id$ in $B$. There is nothing you can substitute for $x$ in $b$, because you only have the endpoints}
+
+
+%\subsection{Directed}
+%It might be easier to try a directed thing first.
+
+%Unfolding definitions it has type
+%\begin{align*}
+%\coh^0 : \prd{f_0 : \varkey{L}{0}A \to \varkey{L}{0}B} \prd{x_0 : \varkey{L}{0}A}{x_1 : \varkey{L}{1}A}{r : \rget{(R_A)}(x_0, x_1)} \rget{(R_B)}(f_0(x_0), \rget{(\coe^0_B)}(f_0(\rget{(\coe^1_A)}(x_1))))
+%\end{align*}
+%\begin{align*}
+%\coh^0(f_0,x_0,x_1,r) :\defeq ?? \rget{(\coh^0_B)}(f_0(\rget{(\coe^1_A)}(x_1)))
+%\end{align*}
+%Suppose we have $A : \univ$ and $B : A \to \univ$. (Just letting $x : A \yields B : \univ$ as a term will confuse me).
+%\begin{align*}
+%R &: \left(\prd{x : \varkey{L}{0}A}(\varkey{L}{0}B)(x)\right)\to \left(\prd{x : \varkey{L}{1}A}(\varkey{L}{1}B)(x)\right) \to \univ \\
+%\coe^0 &: \left(\prd{x : \varkey{L}{0}A}(\varkey{L}{0}B)(x)\right) \to \left(\prd{x : \varkey{L}{1}A}(\varkey{L}{1}B)(x)\right) \\
+%\coh^0 &: \prd{f : \prd{x : \varkey{L}{0}A}(\varkey{L}{0}B)(x)} f \sim \coe^0 f \\
+%\coe^1 &: \left(\prd{x : \varkey{L}{1}A}(\varkey{L}{1}B)(x)\right) \to \left(\prd{x : \varkey{L}{0}A}(\varkey{L}{0}B)(x)\right) \\
+%\coh^1 &: \prd{g : \prd{x : \varkey{L}{1}A}(\varkey{L}{1}B)(x)} \coe^1 g \sim g
+%\end{align*}
+
+%Then define $\Idsym_A(a,a') :\defeq \relim{\_.A^{*T}}(a,a')$ and $\refl{a} :\defeq \relim{\_.a^{*t}}$. Their stuck $\mathsf{R} : \Gamma \to \Gamma^=$ are admissible for us: it is just the transpose of weakening, which corresponds to ignoring the new variable in $\relim{i.a}$.
+
+%\section{Extension Types?}
+%\newcommand{\syn}{\mathsf{syn}}
+%\newcommand{\Op}{\fullmoon}
+%In Jon's Synthetic Tait Computability stuff, the $\syn$ proposition is tiny. The extension types also frequently use $\syn$ as the proposition where the term is fixed. Is this a coincidence? Can we make $\Op - :\defeq (\syn \to -)$ `compute' the same way $\Idsym$-types are supposed to commute?
+%
+%Suppose we do something similar to the above and have maps
+%\begin{align*}
+%(-)^{\Op T} &: \prd{A:\univ} \rform{L}\left(\sm{R : \univ} (\syn \to A \equiv R)\right) \\
+%(-)^{\Op t} &: \prd{A:\univ} A \to \rform{L}\left(\proj_1 \rget{(A^{\Op T})}\right)
+%\end{align*}
+%where $\relim{\_.\proj_1 A^{\Op T}} : \univ$ is supposed to be what $A$ reduces to when $\syn$ holds. Again this can be given as one map
+%\begin{align*}
+%(-)^{\Op} &: \prd{A:\univ} A \to \rform{L}\left(\proj_1 \rget{\univ^{\Op}(A)}\right)
+%\end{align*}
+%if we define $\univ^{\Op}(A) :\defeq \sm{R : \univ} (\syn \to A \equiv R)$.
+%
+%\mvrnote{Is this going anywhere?}
+
+%Type former for extension types might have shape
+%\begin{align*}
+%Ext : \prd{A : \syn \to \univ} \prd{s : \syn} A(s) \to \univ
+%\end{align*}
+%so $Ext(A)(a)$ is the type of terms that are exactly $a$ when $\syn$ holds.
+%
+%But that type rearranges to
+%\begin{align*}
+%\prd{A : \syn \to \univ} \prd{s : \syn} A(s) \to \univ
+%&\equiv \left(\syn \to \sm{A : \univ} A\right) \to \univ \\
+%&\equiv \left(\sm{A : \univ} A\right) \to \rformu \univ \\
+%&\equiv \prd{A : \univ} (A \to \rformu \univ)
+%\end{align*}
+%This is equivalent to $\prd{A : \univ} \rformu ((\syn \to A) \to \univ)$ if that helps.
+
+%Is this now suitable as a destructor for the universe? Just using $\prd{A : \univ} (\syn \to A) \to \univ$ is another candidate, but maybe it is important that $A$ is also restricted to $\syn$?
+
+%\section{No Labels?}
+%Can we somehow fold the $i: \Tiny$ variable into the lock label?
+%
+%\begin{mathpar}
+%\inferrule*[left=ctx-lock]{\Gamma \ctx}{\Gamma, \ctxlocke{i} \ctx} \\
+%\inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \ctxlocke{i}, \Gamma' \yields t : \Tiny \and \Gamma \yields a : A}{\Gamma, \ctxlocke{i}, \Gamma' \yields \varkeye{i}{t} a : \varkeye{i}{t} A} \and
+%\inferrule*[left=unit,fraction={-{\,-\,}-}]{\Gamma, i : \Tiny, \ctxlocke{i} \yields a : A}{\Gamma \yields a[\locksub{}{i}] : A[\locksub{}{i}]}
+%\end{mathpar}
+%\begin{mathpar}
+%%\inferrule*[left=var-option-1]{n \defeq |{\mathsf{locks}(\Gamma')}| \\\\
+%%\Gamma, x : A, \Gamma' \yields t_i : \Tiny \text{ for } i \in [1,n]
+%%}{\Gamma, x : A, \Gamma' \yields \varkeye{t_n} \dots \varkeye{t_1} x : \varkeye{t_n} \dots \varkeye{t_1} A} \and
+%\inferrule*[left=var]{
+%\Gamma, x : A, \Gamma'_{>i_i} \yields t_i : \Tiny \text{ for } i_i \in \mathsf{locks}(\Gamma')
+%}{\Gamma, x : A, \Gamma' \yields \varkeye{i_n}{t_n} \dots \varkeye{i_1}{t_1} x : \varkeye{i_n}{t_n} \dots \varkeye{i_1}{t_1} A} \and
+%\end{mathpar}
+%\begin{mathpar}
+%\inferrule*[left=$\surd$-intro]{\Gamma, \ctxlocke{i} \yields A \type}{\Gamma \yields \rforme{i} A \type} \and
+%\inferrule*[left=$\surd$-intro]{\Gamma, \ctxlocke{i} \yields a : A}{\Gamma \yields \rintroe{i} a : \rforme{i} A} \and
+%\inferrule*[left=$\surd$-elim]{\Gamma, i : \Tiny \yields r : \rforme{i} A}{\Gamma \yields \relim{i.r} : A[\locksub{}{i}]} \\
+%\relim{i.\rintroe{i} a} \defeq a[\locksub{}{i}] \and r \defeq \rintroe{i}{\relim{j. \varkeye{j}{i} r}} \text{ for } r : \rforme{i} A
+%\end{mathpar}
+%This is probably bad: $\rintroe{i} a$ is a term that looks like it binds a fresh variable $i$, but that is not actually a variable you can use anywhere other than in the subscript of $\key$.
+
+%\section{Contraction}
+%In some settings, like BCH cubes~\cite{bch:cubes}, there is a semicartesian monoidal product $\otimes$, and the interval $\mathbb{I}$ is tiny not for $\to$, but $\lolli$. Interestingly, the existing \rulen{$\rformu$-elim} rule would be derivable, because of first precomposing with the map $\Gamma \otimes I \to \Gamma \times I$. We also do not need to worry about the unit, because it is only ever used with a context literally of the form $(\Gamma \otimes i : \Tiny), \ctxlock{L}$.
+%
+%And so the only place an affineness restriction can come into play is in the counit/variable rule, where we build in a term of $\Tiny$.
+%\mvrnote{come back to this?}
+
+%There are a couple of alternative ideas for how variables could work, but each has implications for the admissible rules.
+%\begin{itemize}
+%\item \textbf{Keep Some Context.}
+%
+%
+%\item \textbf{Keep Full Context.} A more powerful option would be to keep the same context for each $t_i$.
+%\begin{mathpar}
+%\inferrule*[left=var?]{
+%\Gamma, x : A, \Gamma' \yields t_i : \Tiny \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma')
+%}{\Gamma, x : A, \Gamma' \yields \varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x : \admkeye{\lockn{L}_n}{t_n} \dots \admkeye{\lockn{L}_1}{t_1} A} \and
+%\end{mathpar}
+%This is building in some kind of contraction for $\Tiny$. The downside is that calculating $\admkey{L}{t} a$ is weirder: we would need to remember the $\ctxlock{K}$ that we go under in the term $a$, and then adjust $\admkey{L}{t}$ so that $t$ is still a valid term. With this variable rule, we define:
+%\begin{align*}
+%\admkeye{\lockn{L}}{t}  \left(\varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{K}_i}{s_i} \dots \varkeye{\lockn{K}_1}{s_1} x\right) &:\defeq \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{L}}{t'}  \varkeye{\lockn{K}_i}{\admkeye{\lockn{L}}{t'} s_i} \dots \varkeye{\lockn{K}_1}{\admkeye{\lockn{L}}{t'} s_1} x \\
+%& \quad \text{where } t' :\defeq \admkeye{\lockn{K}_n}{s_n} \dots \admkeye{\lockn{K}_{i+1}}{s_{i+1}} t
+%\end{align*}
+%and then the map $\rformu A \to \rformu \rformu A$ is definable. Maybe it makes sense to order the keys the other way around in this style.
+%
+%So let's try that:
+%\begin{mathpar}
+%\inferrule*[left=var?]{
+%\Gamma, x : A, \Gamma' \yields t_i : \Tiny \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma')
+%}{\Gamma, x : A, \Gamma' \yields \varkeye{\lockn{L}_1}{t_1} \dots \varkeye{\lockn{L}_n}{t_n} x : \admkeye{\lockn{L}_1}{t_1} \dots \admkeye{\lockn{L}_n}{t_n} A} \and
+%\end{mathpar}
+%and
+%\begin{align*}
+%\admkeye{\lockn{L}}{t} \left(\varkeye{\lockn{K}_1}{s_1} \dots \varkeye{\lockn{K}_i}{s_i}\varkeye{\lockn{K}_{i+1}}{s_{i+1}} \dots \varkeye{\lockn{K}_n}{s_n} x\right) &:\defeq \varkeye{\lockn{K}_1}{\admkeye{\lockn{L}}{t'} s_1} \dots \varkeye{\lockn{K}_i}{\admkeye{\lockn{L}}{t'} s_i} \varkeye{\lockn{L}}{t'} \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \dots \varkeye{\lockn{K}_n}{s_n} a \\
+%& \quad \text{where } t' :\defeq \admkeye{\lockn{K}_{i+1}}{s_{i+1}} \dots \admkeye{\lockn{K}_n}{s_n} t
+%\end{align*}
+%And the lock
+%\begin{align*}
+%(\varkey{L}{t} \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_1}{s_1} x)[\locksub{L}{i}] &:\defeq (\varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_1}{s_1} x)[t[\locksub{L}{i}]/i] \\
+%(\varkey{L'}{t'} \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_1}{s_1} x)[\locksub{L}{i}] &:\defeq \admkey{L'}{t'[\locksub{L}{i}]}(\varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_1}{s_1} x)[\locksub{L}{i}] \\
+%x[\locksub{L}{i}] &:\defeq x
+%%(\admkey{L}{t} c) [a/x] &:\defeq \admkey{L}{t[a/x]} c[a/x] \\
+%%(\varkey{L}{t} c)[\locksub{L}{i}] &:\defeq c[t[\locksub{L}{i}]/i] %\\
+%%(\admkey{K}{t} c)[\locksub{L}{i}] &:\defeq \admkey{K}{t[\locksub{L}{i}]} c[\locksub{L}{i}] &&\lockn{L} \not\defeq \lockn{K}
+%\end{align*}
+%
+%\item \textbf{Fully General Counit.} If you build a substitution for $i : \Tiny$ into
+%\begin{mathpar}
+%\inferrule*[left=counit?,fraction={-{\,-\,}-}]{\Gamma,\Gamma' \yields a : A}{\Gamma, \ctxlock{L}, i : \Tiny, \admkey{L}{t}\Gamma' \yields \admkey{L}{t} a : \admkey{L}{i} A}
+%\end{mathpar}
+%then the fully general counit should be
+%\begin{mathpar}
+%\inferrule*[left=counit?,fraction={-{\,-\,}-}]{\Gamma,\Gamma' \yields a : A \and \Gamma, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields \admkey{L}{t} a : \admkey{L}{t} A}
+%\end{mathpar}
+%which looks a bit psycho, with $t$ appearing in its own context.
+%
+%What if instead, we use some kind of context clearing operation.
+%\begin{mathpar}
+%\inferrule*[left=counit?,fraction={-{\,-\,}-}]{\Gamma,\Gamma' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma'\setminus \Gamma \yields t : \Tiny}{\Gamma, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields \admkey{L}{t} a : \admkey{L}{t} A}
+%\end{mathpar}
+%
+%The variable rule should match this: for a single lock,
+%\begin{mathpar}
+%\inferrule*[left=var?,fraction={-{\,-\,}-}]{\Gamma_1,x : A,\Gamma_2, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields t : \Tiny}{\Gamma_1,x : A,\Gamma_2, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields \varkey{L}{t} x : \admkey{L}{t} A}
+%\end{mathpar}
+%and there would be some complicated n-ary version. This would also solve the contraction problem, but the form of the conclusion doesn't look stable under substitution absent some crazy trick.
+%\end{itemize}
+%
+%
+%\section{Pushouts}
+%Because $(\Tiny \to -)$ is now a left adjoint, it should preserve e.g. pushouts. Let $(f,g) : A \leftarrow S \to B$ and consider the pushout $A +_S B$. First, supposing the inputs are closed, Prop~\ref{prop:closed-adj},
+%\begin{align*}
+%&\rform{L} (\Tiny \to A +_S B) \to C)\\
+%&\equiv (A +_S B \to \rform{L} C) \\
+%&\equiv \sm{h : A \to \rform{L} C}{k : B \to \rform{L} C} \prd{s : S} h(f(s)) = k(g(s)) \\
+%&\equiv \sm{h : \rform{L} (\Tiny \to A) \to C}{k : \rform{L} (\Tiny \to B) \to C} \prd{s : S} \rintro{L}{\rget{h}(\lambda j.(\varkey{L}{j} f)(\varkey{L}{j} s))} =\rintro{L}{\rget{k}(\lambda j.(\varkey{L}{j} g)(\varkey{L}{j} s))} \\
+%&\equiv \sm{h : \rform{L} (\Tiny \to A) \to C}{k : \rform{L} (\Tiny \to B) \to C} \prd{s : S} \rform{L}{\left(\rget{h}(\lambda j.(\varkey{L}{j} f)(\varkey{L}{j} s)) = \rget{k}(\lambda j.(\varkey{L}{j} g)(\varkey{L}{j} s))\right)} \\
+%&\equiv \sm{h : \rform{L} (\Tiny \to A) \to C}{k : \rform{L} (\Tiny \to B) \to C} \rform{L}{\left(\prd{p : \Tiny \to S} \rget{h}(\lambda j.(\varkey{L}{j} f)(p(j))) = \rget{k}(\lambda j.(\varkey{L}{j} g)(p(j)))\right)} ? \\
+%&\equiv \rform{L} \left( \sm{h :(\Tiny \to A) \to C}{k : (\Tiny \to B) \to C} \prd{p : \Tiny \to S} h(\lambda j.(\varkey{L}{j} f)(p(j))) = k(\lambda j.(\varkey{L}{j} g)(p(j)))\right) \\
+%&\equiv \rform{L} \left((\Tiny \to A) +_{\Tiny \to S} (\Tiny \to B) \to C\right)
+%\end{align*}
+%which is what we hoped.
 %\begin{align*}
 %&\rform{L} ((\prd{t:\Tiny} \varkey{L}{t} (A +_S B)) \to \rget{C})\\
 %&\equiv (A +_S B \to \rform{L} \rget{C}) \\
@@ -729,16 +1178,12 @@ which is what we hoped.
 %} \prd{s : S} h(f(s)) = k(g(s)) \\
 %\end{align*}
 
-\section{$\Tiny$-discreteness}
-\begin{definition}
-A type $A : \univ$ is \emph{$\Tiny$-discrete} if the weakening map $A \to (\Tiny \to A)$ is an equivalence.
-\end{definition}
+\fi
 
-\mvrnote{In \cite{yetter:tiny} it is proven that $\Tiny$-discrete objects form a reflective and coreflective subcategory, at least in the 1-topos case. Does it work here? We can use a nullification HIT to build the reflection, I can't get that to be equivalent to the coequaliser definition in Yetter}
- 
+\iffalse
 \section{Total Substitutions}
 \begin{mathpar}
-\inferrule*{~}{\Gamma \yields \cdot : \cdot} \and 
+\inferrule*{~}{\Gamma \yields \cdot : \cdot} \and
 \inferrule*{\Gamma \yields \theta : \Delta \and \Gamma \yields a : A[\theta]}{\Gamma \yields \theta, a : \Delta, a} \\
 \inferrule*{\Gamma, i : \Tiny \yields \theta : \Delta}{\Gamma \yields (\theta,i./\lockn{L}) : \Delta,\ctxlock{L}} \and \
 \inferrule*[fraction={-{\,-\,}-}]{\Gamma \yields \theta : \Delta}{\Gamma, \ctxlock{L}, l : \Tiny \yields (\admkey{L}{l} \theta) : \Delta}
@@ -769,54 +1214,55 @@ Second, does substitution by $\theta,i./\lockn{L}$ actually work? The only place
 \end{align*}
 and eventually $x[\theta, a/x, \theta'] :\defeq a$ once all the keys are gone.
 
-\section{Extension Types?}
-\newcommand{\syn}{\mathsf{syn}}
-In Jon's Synthetic Tait Computability stuff, the $\syn$ proposition is tiny. The extension types also frequently use $\syn$ as the proposition where the term is fixed. Is this a coincidence? Is there something we can do with Mike's coinductive universe idea?
+\fi
 
-Type former for extension types might have shape
-\begin{align*}
-Ext : \prd{A : \syn \to \univ} \prd{s : \syn} A(s) \to \univ
-\end{align*}
-so $Ext(A)(a)$ is the type of terms that are exactly $a$ when $\syn$ holds.
+\section{The Bug}
 
-But that type rearranges to
-\begin{align*}
-\prd{A : \syn \to \univ} \prd{s : \syn} A(s) \to \univ
-&\equiv \left(\syn \to \sm{A : \univ} A\right) \to \univ \\
-&\equiv \left(\sm{A : \univ} A\right) \to \rformu \univ \\
-&\equiv \prd{A : \univ} (A \to \rformu \univ)
-\end{align*}
-This is equivalent to $\prd{A : \univ} \rformu ((\syn \to A) \to \univ)$ if that helps.
+The variable rule is not closed under substitution, if the superscripts on the keys get complicated:
+\begin{alignat*}{2}
+x : A, \ctxlock{L}, B : \univ, \ctxlock{K}, f : \varkey{K}{0} B \to \Tiny, b &:  \varkey{K}{0} B, t : \Tiny &&\yields \varkey{K}{t} \varkey{L}{t} x : A \\
+x : A, \ctxlock{L}, B : \univ, \ctxlock{K}, f : \varkey{K}{0} B \to \Tiny, b &:  \varkey{K}{0} B &&\yields \varkey{K}{f(b)} \varkey{L}{f(b)} x : A
+\end{alignat*}
+but the second term is not well formed, because the $f$ and $b$ get cleared after the first key and so can't be used in the second. So we either need some kind of affineness restriction, or we need to go `fully cartesian' instead of this half-way option.
 
-Is this now suitable as a destructor for the universe? Just using $\prd{A : \univ} (\syn \to A) \to \univ$ is another candidate, but maybe it is important that $A$ is also restricted to $\syn$?
+Here's an idea: We build in as much cartesian-ness as possible,
+\begin{mathpar}
+\inferrule*[left=var]{
+\Gamma, x : A, \Gamma' \yields t_i : \Tiny \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma')
+}{\Gamma, x : A, \Gamma' \yields \varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x : \admkeye{\lockn{L}_n}{t_n} \dots \admkeye{\lockn{L}_1}{t_1} A}
+\end{mathpar}
+\begin{mathpar}
+\inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \Gamma'' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \Gamma', \admkey{L}{t}\Gamma'' \yields \admkey{L}{t} a : \admkey{L}{t} A}
+\end{mathpar}
 
-%\section{No Labels?}
-%Can we somehow fold the $i: \Tiny$ variable into the lock label?
-%
-%\begin{mathpar}
-%\inferrule*[left=ctx-lock]{\Gamma \ctx}{\Gamma, \ctxlocke{i} \ctx} \\
-%\inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \ctxlocke{i}, \Gamma' \yields t : \Tiny \and \Gamma \yields a : A}{\Gamma, \ctxlocke{i}, \Gamma' \yields \varkeye{i}{t} a : \varkeye{i}{t} A} \and
-%\inferrule*[left=unit,fraction={-{\,-\,}-}]{\Gamma, i : \Tiny, \ctxlocke{i} \yields a : A}{\Gamma \yields a[\locksub{}{i}] : A[\locksub{}{i}]}
-%\end{mathpar}
-%\begin{mathpar}
-%%\inferrule*[left=var-option-1]{n \defeq |{\mathsf{locks}(\Gamma')}| \\\\
-%%\Gamma, x : A, \Gamma' \yields t_i : \Tiny \text{ for } i \in [1,n]
-%%}{\Gamma, x : A, \Gamma' \yields \varkeye{t_n} \dots \varkeye{t_1} x : \varkeye{t_n} \dots \varkeye{t_1} A} \and
-%\inferrule*[left=var]{
-%\Gamma, x : A, \Gamma'_{>i_i} \yields t_i : \Tiny \text{ for } i_i \in \mathsf{locks}(\Gamma')
-%}{\Gamma, x : A, \Gamma' \yields \varkeye{i_n}{t_n} \dots \varkeye{i_1}{t_1} x : \varkeye{i_n}{t_n} \dots \varkeye{i_1}{t_1} A} \and
-%\end{mathpar}
-%\begin{mathpar}
-%\inferrule*[left=$\surd$-intro]{\Gamma, \ctxlocke{i} \yields A \type}{\Gamma \yields \rforme{i} A \type} \and
-%\inferrule*[left=$\surd$-intro]{\Gamma, \ctxlocke{i} \yields a : A}{\Gamma \yields \rintroe{i} a : \rforme{i} A} \and
-%\inferrule*[left=$\surd$-elim]{\Gamma, i : \Tiny \yields r : \rforme{i} A}{\Gamma \yields \relim{i.r} : A[\locksub{}{i}]} \\
-%\relim{i.\rintroe{i} a} \defeq a[\locksub{}{i}] \and r \defeq \rintroe{i}{\relim{j. \varkeye{j}{i} r}} \text{ for } r : \rforme{i} A
-%\end{mathpar}
-%This is probably bad: $\rintroe{i} a$ is a term that looks like it binds a fresh variable $i$, but that is not actually a variable you can use anywhere other than in the subscript of $\key$.
-%
-\section{With Cohesion??}
-Heaven help us
+This is annoying, because when $\admkey{L}{t}$ reaches a variable, it has to recur into all the superscripts of the existing keys, rather than stopping as the outermost key.
+
+Maybe we can use some sugar to make it manageable:
+\begin{mathpar}
+\inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \ctxopen{L}{t}, \Gamma' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields \admkey{L}{t} a : \admkey{L}{t} A}
+\end{mathpar}
+\begin{mathpar}
+\inferrule*[left=var]{~ \ctxlock{L}^\varnothing \notin \Gamma'}{\Gamma, x : A, \Gamma' \yields x : A}
+\end{mathpar}
+and then we try to build the former into the latter. But then how do we handle a lock being opened more than once?
+
+\begin{mathpar}
+\inferrule*[left=counit?,fraction={-{\,-\,}-}]{\Gamma \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny \and \lock \notin \Gamma'}{\Gamma, \ctxlock{L}, \Gamma' \yields \admkey{L}{t} a : \admkey{L}{t} A}
+\end{mathpar}
+but we will need a generalised version of this, for going under binders in $a : A$. The actual counit rule is then
+\begin{mathpar}
+\inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \Gamma'' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \Gamma', \admkey{L}{t}\Gamma'' \yields \admkey{L}{t} a : \admkey{L}{t} A}
+\end{mathpar}
+
+
+%\section{Combined With Cohesion??}
+%Heaven help us
 
 \printbibliography
 
 \end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
