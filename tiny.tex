@@ -2,70 +2,90 @@
 
 % \usepackage{scohesion}
 
-\usepackage{amssymb,amsthm} \usepackage{thmtools} \usepackage{amsmath}
+\usepackage{amssymb,amsthm}
+\usepackage{thmtools}
+\usepackage{amsmath}
 \usepackage{wasysym}
 
-\usepackage{mathpartir} \usepackage{tikz-cd}
+\usepackage{mathpartir}
+\usepackage{tikz-cd}
 
-\usepackage{graphicx} \usepackage{scalerel} \usepackage{fontawesome}
+\usepackage{graphicx}
+\usepackage{scalerel}
+\usepackage{fontawesome}
 
-\usepackage{xcolor} \definecolor{darkgreen}{rgb}{0,0.45,0}
+\usepackage{xcolor}
+\definecolor{darkgreen}{rgb}{0,0.45,0}
 
 \usepackage[status=draft,inline,nomargin]{fixme}
 \FXRegisterAuthor{mvr}{anmvr}{\color{blue}MVR}
 
 \usepackage[style=alphabetic, maxbibnames=99, maxalphanames=99,
-mincrossrefs=99]{biblatex} \addbibresource{tiny.bib}
+mincrossrefs=99]{biblatex}
+\addbibresource{tiny.bib}
 
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{proposition}[theorem]{Proposition}
 \newtheorem{lemma}[theorem]{Lemma}
 \newtheorem{corollary}[theorem]{Corollary}
 
-\theoremstyle{definition} \newtheorem{definition}[theorem]{Definition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
 \newtheorem{remark}[theorem]{Remark}
-\newtheorem{example}[theorem]{Example} \newtheorem{question}{Question}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{question}{Question}
 
 \let\oldequiv\equiv%
-\renewcommand{\equiv}{\simeq} \newcommand{\defeq}{\oldequiv}
+\renewcommand{\equiv}{\simeq}
+\newcommand{\defeq}{\oldequiv}
 \newcommand{\ndefeq}{\not\defeq}
 
-\newcommand{\rulen}[1]{\textsc{#1}} \newcommand{\yields}{\vdash}
-\newcommand{\qyields}{\Vdash} \newcommand{\cbar}{\, | \,}
-\newcommand{\judge}{\mathcal{J}} \newcommand{\freshfor}{\mathbin{\#}}
+\newcommand{\rulen}[1]{\textsc{#1}}
+\newcommand{\yields}{\vdash}
+\newcommand{\qyields}{\Vdash}
+\newcommand{\cbar}{\, | \,}
+\newcommand{\judge}{\mathcal{J}}
+\newcommand{\freshfor}{\mathbin{\#}}
 
 \newcommand{\ctx}{\,\,\mathsf{ctx}}
 \newcommand{\type}{\,\,\mathsf{type}}
 \newcommand{\tele}{\,\,\mathsf{tele}}
 
 % Ordinary HoTT notation
-\newcommand{\Idsym}{\mathsf{Id}} \newcommand{\Id}{\mathsf{Id}}
+\newcommand{\Idsym}{\mathsf{Id}}
+\newcommand{\Id}{\mathsf{Id}}
 % \newcommand{\Id}[3]{\mathsf{Id}_{{#1}}(#2,#3)}
-\newcommand*{\trunc}[2]{\mathopen{}\left\Vert
-    #2\right\Vert_{#1}\mathclose{}}
-\newcommand*{\strunc}[2]{\mathopen{}\left\Vert
-    #2\right\Vert_{#1}^s\mathclose{}} \newcommand*{\univ}{\mathcal{U}}
-\newcommand*{\NN}{\mathbb{N}} \newcommand*{\ZZ}{\mathbb{Z}}
+\newcommand*{\trunc}[2]{\mathopen{}\left\Vert #2\right\Vert_{#1}\mathclose{}}
+\newcommand*{\strunc}[2]{\mathopen{}\left\Vert #2\right\Vert_{#1}^s\mathclose{}}
+\newcommand*{\univ}{\mathcal{U}}
+\newcommand*{\NN}{\mathbb{N}}
+\newcommand*{\ZZ}{\mathbb{Z}}
 % \newcommand*{\true}{\star}
-\newcommand*{\id}{\mathsf{id}} \newcommand*{\proj}{\mathsf{pr}}
-\newcommand*{\pushpr}{\mathbin{\wasysquare}} \newcommand*{\join}{\ast}
-\newcommand*{\ap}{\mathsf{ap}} \newcommand*{\transp}{\mathsf{tr}}
+\newcommand*{\id}{\mathsf{id}}
+\newcommand*{\proj}{\mathsf{pr}}
+\newcommand*{\pushpr}{\mathbin{\wasysquare}}
+\newcommand*{\join}{\ast}
+\newcommand*{\ap}{\mathsf{ap}}
+\newcommand*{\transp}{\mathsf{tr}}
 \newcommand*{\isContr}{\mathsf{isContr}}
 \newcommand*{\isEquiv}{\mathsf{isEquiv}}
 \newcommand*{\isSpace}{\mathsf{isSpace}}
 \newcommand*{\isModal}{\mathsf{isModal}}
-\newcommand*{\inl}{\mathsf{inl}} \newcommand*{\inr}{\mathsf{inr}}
-\newcommand*{\glue}{\mathsf{glue}} \newcommand*{\code}{\mathsf{code}}
+\newcommand*{\inl}{\mathsf{inl}}
+\newcommand*{\inr}{\mathsf{inr}}
+\newcommand*{\glue}{\mathsf{glue}}
+\newcommand*{\code}{\mathsf{code}}
 \newcommand*{\encode}{\mathsf{encode}}
 \newcommand*{\decode}{\mathsf{decode}}
-\newcommand*{\const}{\mathsf{const}} \newcommand*{\fib}{\mathsf{fib}}
+\newcommand*{\const}{\mathsf{const}}
+\newcommand*{\fib}{\mathsf{fib}}
 \newcommand*{\case}{\mathsf{case}}
 \newcommand*{\refl}[1]{\mathsf{refl}_{#1}}
 \newcommand*{\pathind}[3]{\mathsf{let} \; \refl{#2} = {#1} \,
   \mathsf{in} \, {#3}}
 \newcommand*{\cupann}[2]{\mathbin{\tensor*[_{#1}]{\cup}{_{#2}}}}
-\newcommand{\bang}{\mathord{!}}  \newcommand{\ind}[3]{\mathsf{let} \;
-  {#2} = {#1} \, \mathsf{in} \, {#3}}
+\newcommand{\bang}{\mathord{!}}
+\newcommand{\ind}[3]{\mathsf{let} \; {#2} = {#1} \, \mathsf{in} \, {#3}}
 
 % \makeatletter \newcommand{\@thesum}[1]{(#1) \times}
 % \newcommand{\sm}[1]{\@ifnextchar\bgroup{\@thesum{#1}\sm}{\@thesum{#1}}}
@@ -73,27 +93,32 @@ mincrossrefs=99]{biblatex} \addbibresource{tiny.bib}
 % \newcommand{\prd}[1]{\@ifnextchar\bgroup{\@theprd{#1}\prd}{\@theprd{#1}}}
 % \makeatother
 
-\makeatletter \def\smsym{\sum} \newcommand{\@thesum}[1]{\smsym_{(#1)}}
+\makeatletter \def\smsym{\sum}
+\newcommand{\@thesum}[1]{\smsym_{(#1)}}
 \newcommand{\sm}[1]{\@ifnextchar\bgroup{\@sm{#1}\sm}{\@sm{#1}}}
 \newcommand{\@sm}[1]{\mathchoice{{\textstyle\@thesum{#1}}}{\@thesum{#1}}{\@thesum{#1}}{\@thesum{#1}}}
-\def\prdsym{\prod} \newcommand{\@theprd}[1]{\prdsym_{(#1)}}
+\def\prdsym{\prod}
+\newcommand{\@theprd}[1]{\prdsym_{(#1)}}
 \newcommand{\prd}[1]{\@ifnextchar\bgroup{\@prd{#1}\prd}{\@prd{#1}}}
 \newcommand{\@prd}[1]{\mathchoice{{\textstyle\@theprd{#1}}}{\@theprd{#1}}{\@theprd{#1}}{\@theprd{#1}}}
 \makeatother
 
 \newcommand*{\lolli}{\multimap}
 
-\newcommand{\M}{\mathcal{M}} \newcommand{\C}{\mathcal{C}}
+\newcommand{\M}{\mathcal{M}}
+\newcommand{\C}{\mathcal{C}}
 \newcommand{\Set}{\mathrm{Set}}
 % \newcommand{\lock}{\text{\faLock}}
 \newcommand{\lock}{\mathchoice {\scalebox{0.8}{\text{\faLock}}}
   {\scalebox{0.8}{\text{\faLock}}} {\scalebox{0.5}{\text{\faLock}}}
   {\scalebox{0.4}{\text{\faLock}}} }
-\newcommand{\unlock}{\text{\faUnlock}} \newcommand{\key}{\mathchoice
+\newcommand{\unlock}{\text{\faUnlock}}
+\newcommand{\key}{\mathchoice
   {\scalebox{0.8}{\text{\faKey}}} {\scalebox{0.8}{\text{\faKey}}}
   {\scalebox{0.5}{\text{\faKey}}} {\scalebox{0.4}{\text{\faKey}}} }
 
-\newcommand{\Tiny}{\mathbb{T}} \newcommand{\lockn}[1]{\mathcal{#1}}
+\newcommand{\Tiny}{\mathbb{T}}
+\newcommand{\lockn}[1]{\mathcal{#1}}
 \newcommand{\varkeye}[2]{\key_{#1}^{#2}}
 \newcommand{\varkey}[2]{\varkeye{\lockn{#1}}{#2}}
 \newcommand{\admkeye}[2]{\overrightarrow{\key}_{#1}^{#2}}
@@ -104,8 +129,9 @@ mincrossrefs=99]{biblatex} \addbibresource{tiny.bib}
 \newcommand{\locksub}[2]{\lock_{\lockn{#1}}/#2}
 
 \newcommand{\rform}[2]{\surd_{\lockn{#1}} #2}
-\newcommand{\rformu}[1]{\surd #1} \newcommand{\rforme}[2]{\surd_{#1}
-  #2} \newcommand{\rintro}[2]{\mathsf{root}_{\lockn{#1}}(#2)}
+\newcommand{\rformu}[1]{\surd #1}
+\newcommand{\rforme}[2]{\surd_{#1} #2}
+\newcommand{\rintro}[2]{\mathsf{root}_{\lockn{#1}}(#2)}
 \newcommand{\rintroe}[2]{\mathsf{root}_{#1}(#2)}
 % \newcommand{\relim}[1]{\mathsf{unroot}(#1)}
 % \newcommand{\rbindsym}{\rotatebox[origin=c]{180}{$\lambda$}}
@@ -118,10 +144,13 @@ mincrossrefs=99]{biblatex} \addbibresource{tiny.bib}
 
 \newcommand{\rget}[1]{{#1}_{\downharpoonleft}}
 
-\usepackage{hyperref} \usepackage{cleveref}
+\usepackage{hyperref}
+\usepackage{cleveref}
 \hypersetup{colorlinks,citecolor=darkgreen,linkcolor=darkgreen}
 
-\title{Tiny Object} \author{} \date{}
+\title{Tiny Object}
+\author{}
+\date{}
 
 \begin{document}
 \maketitle
