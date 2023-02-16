@@ -94,13 +94,13 @@ mincrossrefs=99]{biblatex} \addbibresource{tiny.bib}
   {\scalebox{0.5}{\text{\faKey}}} {\scalebox{0.4}{\text{\faKey}}} }
 
 \newcommand{\Tiny}{\mathbb{T}} \newcommand{\lockn}[1]{\mathcal{#1}}
-\newcommand{\varkey}[2]{\key_{\lockn{#1}}^{#2}}
 \newcommand{\varkeye}[2]{\key_{#1}^{#2}}
-\newcommand{\admkey}[2]{\overrightarrow{\key}_{\lockn{#1}}^{#2}}
+\newcommand{\varkey}[2]{\varkeye{\lockn{#1}}{#2}}
 \newcommand{\admkeye}[2]{\overrightarrow{\key}_{#1}^{#2}}
-\newcommand{\ctxlock}[1]{\lock_{\lockn{#1}}}
+\newcommand{\admkey}[2]{\admkeye{\lockn{#1}}{#2}}
 \newcommand{\ctxlocke}[1]{\lock_{#1}}
-\newcommand{\ctxopen}[2]{\unlock_{\lockn{#1}}^{\,#2}}
+\newcommand{\ctxlock}[1]{\ctxlocke{\lockn{#1}}}
+% \newcommand{\ctxopen}[2]{\unlock_{\lockn{#1}}^{\,#2}}
 \newcommand{\locksub}[2]{\lock_{\lockn{#1}}/#2}
 
 \newcommand{\rform}[2]{\surd_{\lockn{#1}} #2}
@@ -109,7 +109,7 @@ mincrossrefs=99]{biblatex} \addbibresource{tiny.bib}
 \newcommand{\rintroe}[2]{\mathsf{root}_{#1}(#2)}
 % \newcommand{\relim}[1]{\mathsf{unroot}(#1)}
 % \newcommand{\rbindsym}{\rotatebox[origin=c]{180}{$\lambda$}}
-\newcommand{\rbindsym}{\scalerel*{\reflectbox{\rotatebox[origin=c]{180}{$\lambda$}}}{\lambda}}
+\newcommand{\rbindsym}{\raisebox{-0.5pt}{\scalerel*{\reflectbox{\rotatebox[origin=c]{180}{$\lambda$}}}{\lambda}}}
 \newcommand{\relim}[1]{\rbindsym #1}
 \newcommand{\retro}[1]{\mathsf{retro}\,#1}
 
@@ -128,15 +128,7 @@ mincrossrefs=99]{biblatex} \addbibresource{tiny.bib}
 
 We describe a type theory that makes a fixed type $\Tiny$ a `tiny
 object': there is a type former $\rformu$ that acts as the
-\emph{external} right adjoint to $(\Tiny \to -)$. In contrast to
-\cite[Section 2]{transpension}, we only add a type former for this
-`global' function space, rather than adding a right adjoint to the
-dependent product $\Pi_\Tiny : \mathcal{E}/\Tiny \to
-\mathcal{E}$. This makes the rules for the $\rformu$ type much
-simpler, and (conjecturally) lets us maintain admissibility of
-substitution, normalisation, etc. And, as we will see later, we can
-derive this right adjoint to $\Pi_\Tiny$ internally using
-$\Idsym$-types.
+\emph{external} right adjoint to $(\Tiny \to -)$.
 
 We will add $\rformu$ as a `Fitch style'
 modality~\cite{clouston:fitch-style}, where the type former is made
@@ -182,6 +174,14 @@ type contrasts with
 \cite[Section 5]{fitchtt}, where the $\Gamma,i:\Tiny$ context
 extension is a special piece of syntax, and so only special `terms'
 may be substituted for it.
+
+In contrast to
+\cite[Section 2]{transpension}, we only add a right adjoint for the
+non-dependent function space, rather than adding a right adjoint to the
+dependent product $\Pi_\Tiny : \mathcal{E}/\Tiny \to
+\mathcal{E}$. This makes the rules for the $\rformu$ type much
+simpler, and (conjecturally) lets us maintain admissibility of
+substitution, normalisation, etc. And, as we will see later, a right
 
 In~\cite{lops}, a tiny interval $\mathbb{I}$ is used to internally
 construct a universe that classifies fibrations. The $\rformu$ type
@@ -233,7 +233,7 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
       \notin \Gamma'}{\Gamma, \ctxlock{L}, \Gamma' \yields
       \admkey{L}{t} a : \admkey{L}{t} A}
   \end{mathpar}
-  so that the function ``$(\Tiny \to \Gamma)$'' is applied to
+  so that the function ``$\Tiny \to \Gamma$'' is applied to
   $t : \Tiny$. The new piece of term syntax is a stuck instance of
   this $\admkey{L}{t}$ rule, which we build into the variable rule
   below. To distinguish the two, we will write the admissible rule as
@@ -241,7 +241,7 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
   $\varkey{L}{t}$: think of the one with the arrow as `in motion' down
   to the variables. Roughly, $\admkey{L}{t}$ will add a stuck
   $\varkey{L}{t}$ to every \emph{free} variable use, a bit like the
-  underlining operation in the $\natural$ stuff.
+  underlining operation in the type theory for $\natural$.
 
   We will need a generalised version of this counit rule, for going
   under binders in the term $a : A$. The actual counit rule is then
@@ -258,13 +258,13 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
   behind some locks, we have to provide a $t_i : \Tiny$ for each lock
   between that variable and the end of the context.
 
-  Suppose the context $\Gamma, x : A, \Gamma'$ contains a collection
-  of locks $\ctxlocke{\lockn{L}_1}, \dots, \ctxlocke{\lockn{L}_n}$.
+  Suppose that in the context $\Gamma, x : A, \Gamma'$, the telescope
+  $\Gamma'$ contains a collection of locks
+  $\ctxlocke{\lockn{L}_1}, \dots, \ctxlocke{\lockn{L}_n}$.
   % from left to right, and the variable $x$ lies between
   % $\ctxlocke{\lockn{L}_{i-1}$ and $\ctxlocke{\lockn{L}_i}$.
-
   \begin{mathpar}
-    \inferrule*[left=var?,fraction={-{\,-\,}-}]{ \Gamma, x : A,
+    \inferrule*[left=var]{ \Gamma, x : A,
       \Gamma' \yields t_i : \Tiny \text{ for } \lockn{L}_i \in
       \mathsf{locks}(\Gamma') }{\Gamma, x : A, \Gamma' \yields
       \varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x :
@@ -272,14 +272,15 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
     \and
   \end{mathpar}
   The type of the variable has the admissible counit rule applied to
-  it: typically these `keys' will not be stuck on the type $A$ the way
-  they are on the variable $x$.
+  it: typically these `keys' will not be stuck on the type $A$, unless
+  $A$ is itself a variable.
 
 \item \textbf{Calculating the Counit.}  On terms $a : A$, the term
-  $\admkey{L}{t} a$ is calculated as follows. We induct on $a$ until
-  we reach an instance of the above variable rule. Suppose that, once
-  reaching the variable, the locks on the context after $x : A$ (from
-  left to right) are
+  $\admkey{L}{t} a$ is calculated as follows. Suppose first that
+  $t : \Tiny$ is a closed term. We induct on $a$ until we reach an
+  instance of the variable rule. Suppose that, once reaching the
+  variable, the locks on the context after $x : A$ (from left to
+  right) are
   $\lockn{K}_1, \dots,\lockn{K}_i, \lockn{K}_{i+1}, \dots,
   \lockn{K}_n$, so that $\lockn{K}_1, \dots,\lockn{K}_i$ lies in
   $\Gamma$ and $\lockn{K}_{i+1}, \dots, \lockn{K}_n$ lies in
@@ -288,10 +289,28 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
     \admkeye{\lockn{L}}{t}  \left(\varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{K}_i}{s_i} \dots \varkeye{\lockn{K}_1}{s_1} x\right) :\defeq \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{L}}{t}  \varkeye{\lockn{K}_i}{s_i} \dots \varkeye{\lockn{K}_1}{s_1} x
   \end{align*}
 
-  When working informally, this means keeping track of how many new
-  $\ctxlocke{\lockn{K}_i}$ you go under (this will be obvious), and
-  then placing $\varkeye{\lockn{L}}{t}$ after all of the new
-  $\ctxlocke{\lockn{K}_i}$ that you encountered.
+  When working informally, this means counting how many
+  $\ctxlocke{\lockn{K}_i}$ occur between the use of
+  $\admkeye{\lockn{L}}{t}$ and the variable, and placing
+  $\varkeye{\lockn{L}}{t}$ to the left of the newly created
+  $\ctxlocke{\lockn{K}_i}$.
+
+  In the general case, when $t : \Tiny$ is not closed, the variables
+  used in $t$ itself are now locked behind
+  $\ctxlocke{\lockn{K}_n}, \dots, \ctxlocke{\lockn{K}_{i+1}}$ by the
+  time we reach the variable $x$. We therefore need to (admissibly)
+  apply the keys $\admkeye{\lockn{K}_n}{s_n} \dots
+  \admkeye{\lockn{K}_{i+1}}{s_{i+1}}$ to the term $t$.
+
+  \begin{align*}
+    \admkeye{\lockn{L}}{t}  \left(\varkeye{\lockn{K}_n}{s_n} \dots
+    \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{K}_i}{s_i}
+    \dots \varkeye{\lockn{K}_1}{s_1} x\right)
+    :\defeq \varkeye{\lockn{K}_n}{s_n} \dots \varkeye{\lockn{K}_{i+1}}{s_{i+1}} \varkeye{\lockn{L}}{\admkeye{\lockn{K}_n}{s_n} \dots \admkeye{\lockn{K}_{i+1}}{s_{i+1}}t}  \varkeye{\lockn{K}_i}{s_i} \dots \varkeye{\lockn{K}_1}{s_1} x
+  \end{align*}
+
+  (The size of the terms $s_n, \dots, s_{i+1}, t$ is smaller than the
+  size of $t$ and $a$, so this process eventually terminates.)
 
 \item \textbf{Unit.} The unit of
   $(- \times \Tiny) \dashv (\Tiny \to -)$ is a little mysterious. The
@@ -323,25 +342,9 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
 \end{itemize}
 
 \begin{remark}
-  The downside of this variable rule is, it could be a little annoying
-  to figure out which variables are allowed to be used for each $t_i$:
-  the context for each $t_i$ is different. But I cannot come up with a
-  good alternative: the first \rulen{var?} rule above is too weak to
-  make \rulen{counit} admissible, and a stronger rule like
-  \begin{mathpar}
-    \inferrule*[left=var?]{ \Gamma, x : A, \Gamma' \yields t_i : \Tiny
-      \text{ for } \lockn{L}_i \in \mathsf{locks}(\Gamma') }{\Gamma, x
-      : A, \Gamma' \yields \varkeye{\lockn{L}_n}{t_n} \dots
-      \varkeye{\lockn{L}_1}{t_1} x : \admkeye{\lockn{L}_n}{t_n} \dots
-      \admkeye{\lockn{L}_1}{t_1} A} \and
-  \end{mathpar}
-  makes $\admkey{L}{t} a$ extremely unpleasant to compute by hand.
-\end{remark}
-
-\begin{remark}
   To be careful, we should have an actual calculus of telescopes
   $\Gamma \yields \Gamma' \tele$ that $\admkeye{\lockn{L}}{t} -$,
-  $-[\locksub{L}{i}]$ and $-|_{\varkey{L}{t}}$ are defined on.
+  and $-[\locksub{L}{i}]$ are defined on.
 \end{remark}
 
 % \begin{remark}
@@ -354,6 +357,7 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
 % \end{remark}
 
 \begin{remark}
+  \mvrnote{TODO: Out of date}
   Some examples of applying keys to terms:
   \begin{align*}
     x : \NN,  y : \NN &\yields x + y : \NN \\
@@ -411,12 +415,18 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
   \rintro{L}{\relim{i. \admkey{L}{i} r}}
 \end{mathpar}
 
-Going under $\rintro{L} a$ means all variables get locked by
+\begin{itemize}
+\item \rulen{$\surd$-form/intro}: \mvrnote{Prose}
+  Going under $\rintro{L} a$ means all variables get locked by
 $\ctxlock{L}$, so every use of those variables in $a$ must have a
 $\varkey{L}{t}$ for some $t : \Tiny$. If $A$ is a closed type, we may
 as well just write $\rformu A$ rather than bind a lock name that
-doesn't get used. Going under $\relim{i.r}$, the context remains
+doesn't get used.
+\item \rulen{$\surd$-elim}: Going under $\relim{i.r}$, the context remains
 accessible, and you additionally may use a bonus $i : \Tiny$.
+\item \rulen{$\surd$-beta}:
+\item \rulen{$\surd$-eta}:
+\end{itemize}
 
 % \begin{itemize}
 % \item \rulen{$\surd$-form/intro}:
@@ -427,10 +437,23 @@ accessible, and you additionally may use a bonus $i : \Tiny$.
 
 \subsection{Adjunction}
 
-First, we can show a kind of functoriality.
+First, two basic maps that are easily definable from the rules.
 
 \begin{definition}
-  For $f : A \to B$ a \emph{closed} function, define $\rformu f$ by
+  If $A$ is a (for now, closed) type, there is a map
+  $\varepsilon_A : \rformu{A} \to A$ given by
+  \begin{align*}
+    \varepsilon_A &: \rformu{A} \to A \\
+    \varepsilon_A(r) &:\defeq \relim{\_.r}
+  \end{align*}
+  To get a term of $A$, it is enough to produce a term of $\rformu{A}$
+  using an additional assumption of type $\Tiny$. But we have the
+  variable $r : \rformu{A}$ already, so we have no need for the
+  additional assumption.
+\end{definition}
+
+\begin{definition}
+  For $f : A \to B$ a (for now, closed) function, define $\rformu f$ by
   \begin{align*}
     \lambda r. \rintro{L}{f(\relim{i.\varkey{L}{i} r})} : \rformu A \to \rformu B
   \end{align*}
@@ -438,12 +461,14 @@ First, we can show a kind of functoriality.
   $\rformu B$ we have to produce a term of $B$ when the context is
   locked behind $\ctxlock{L}$. We have a function $f : A \to B$
   available, so we just have to produce a term of $A$ in this locked
-  context. We cannot use $r$ immediately because it is locked behind
-  $\ctxlock{L}$. But we can get a term of $A$ if we can produce a
-  $\rformu A$ using a term $i : \Tiny$. This $i : \Tiny$ is exactly
-  what we need to unlock $r$, via $\varkey{L}{i} r : \rformu{A}$. So
-  we have $\relim{i.\varkey{L}{i} r} : A$, which we can apply $f$ to,
-  and we are done.
+  context. We cannot use the variable $r : \rformu A$ immediately
+  because it is locked behind $\ctxlock{L}$. But we \emph{can} get a
+  term of $A$ if we can produce a $\rformu A$ using an additional
+  assumption $i : \Tiny$. This time the ability to access to a term
+  $i : \Tiny$ is crucial: it is exactly what we need to unlock $r$,
+  via $\varkey{L}{i} r : \rformu{A}$. So we have
+  $\relim{i.\varkey{L}{i} r} : A$, which we can apply $f$ to get a
+  term of $B$, which is what we needed.
 \end{definition}
 
 If $f$ is not closed then this is not well-typed, because $f$ as a
@@ -461,8 +486,11 @@ to a function $A \to B$ where we need it.
 \end{definition}
 
 This is already very noisy, so to cut down on the symbols let us fix
-some notation: (This cannot be internalised as a function, it is just
-an admissible piece of syntax)
+a couple of pieces of notation.
+
+The first piece of notation is a compact version of the counit
+function $\varepsilon_A : \rformu{A} \to A$ defined above, generalised
+to allow us to skip past many locks in the context when extracting $A$.
 \begin{definition}
   If $x : \rform{L} A$ is behind several locks
   $\ctxlocke{\lockn{K}_1} \dots \ctxlocke{\lockn{K}_n}$, then let
@@ -473,17 +501,50 @@ an admissible piece of syntax)
   $\rget{x} : A[\locksub{L}{i}] \defeq A$, because $i$ does not occur
   in $A$.
 \end{definition}
+(This cannot be internalised as a function, it is just
+an admissible piece of syntax.)
 
-Using this shorthand, the definition of functoriality is much clearer:
+For our second piece of notation, like ordinary $\lambda$-abstraction,
+and as with any negative type former, the $\surd$-introduction rule is
+right-invertible and so we may define terms of it via copattern
+matching. We will write
+\begin{align*}
+  r(\ctxlock{L}, \ctxlock{K}) :\defeq q
+  \quad \text{to mean} \quad
+  r :\defeq \rintro{L}{\rintro{K}{q}}
+\end{align*}
+This combines nicely with ordinary copattern-style definitions of
+functions. We write
+\begin{align*}
+  f(x,y,\ctxlock{L},z) :\defeq
+  \quad \text{to mean} \quad
+  f :\defeq \lambda x. \lambda y. \rintro{L}{\lambda z. 1}
+\end{align*}
+This syntax makes it easy to see at a glance which variables are
+locked by what: the $x$ and $y$ here are to the left of $\ctxlock{L}$
+in the list of arguments and so are locked.
+
+Eliminating a term of $\rformu{A}$ in this style is a little peculiar.
+To `evaluate' a lock we bind a new variable $i$ as in
+$\surd$-elimination, but this variable is now in scope \emph{to the
+  left} of the that lock. We write
+\begin{align*}
+  f(a(i), b(i), \rbindsym i., c)
+  \quad \text{to mean} \quad
+  \left(\relim{i. f(a(i), b(i))}\right)(c)
+\end{align*}
+
+Using these shorthand, the definition of functoriality is much clearer:
 For $A,B : \rformu \univ$ and
 $f : \rform{L}\left(\rget{A} \to \rget{B}\right)$ we have
-\begin{align*}
-  \rformu f :\defeq \lambda r. \rintro{L}{\rget{f}(\rget{r})} : \rform{L}\rget{A} \to \rform{L}\rget{B}
-\end{align*}
+\begin{alignat*}{2}
+  &\rformu f &&: \rform{L}\rget{A} \to \rform{L}\rget{B} \\
+  &\rformu f(r, \ctxlock{L}) &&:\defeq \rget{f}(\rget{r})
+\end{alignat*}
 
 Now let's look at how $\rformu$ relates to $(\Tiny \to -)$
 \begin{definition}
-  If $A : \univ$ is a \emph{closed type}, there are maps
+  If $A : \univ$ is a (for now) closed type, there are maps
   \begin{align*}
     \eta_A &: A \to \rformu(\Tiny \to A) \\
     \varepsilon_A &: (\Tiny \to \rformu A) \to A
@@ -492,6 +553,10 @@ Now let's look at how $\rformu$ relates to $(\Tiny \to -)$
   \begin{align*}
     \eta_A(a) &:\defeq \rintro{L}{\lambda t. \varkey{L}{t} a} \\
     \varepsilon_A(f) &:\defeq \relim{i.f(i)}
+  \end{align*}
+  \begin{align*}
+    \eta_A(a, \ctxlock{L}, t) &:\defeq \varkey{L}{t} a \\
+    \varepsilon_A(f) &:\defeq f(i, \rbindsym i.)
   \end{align*}
   Allowing dependency, for \emph{any} $A : \univ$, there is a map
   \begin{align*}
@@ -529,6 +594,11 @@ actually get adjointness?
   \begin{alignat*}{2}
     g &\mapsto \lambda a. \rintro{L}{\rget{g}(\lambda j.\varkey{L}{j} a)} &&: \rformu((\Tiny \to A) \to B) \to (A \to \rformu B) \\
     f &\mapsto \rintro{K}{\lambda h. \relim{i.(\varkey{K}{i} f)(h(i))}} &&: (A \to \rformu B) \to \rformu ((\Tiny \to A) \to B)
+  \end{alignat*}
+
+  \begin{alignat*}{2}
+    g(a, \ctxlock{L}) &:\defeq \rget{g}(\lambda j.\varkey{L}{j} a) \\
+    f(\ctxlock{K}, h) &:\defeq \relim{i.(\varkey{K}{i} f)(h(i))}
   \end{alignat*}
 \end{proposition}
 \begin{proof}
@@ -587,24 +657,6 @@ And in fact, we can also let $B$ depend on $A$:
     is so heavy that it's hard to see the original adjunction
     underneath it...}
 \end{proposition}
-
-\mvrnote{Might be good to have a `pattern matching' syntax for
-  $\rintro{L}{-}$ e.g.}
-\begin{align*}
-  f(x,y,\ctxlock{L},z) :\defeq a
-\end{align*}
-meaning
-\begin{align*}
-  f :\defeq \lambda x. \lambda y. \rintro{L}{\lambda z. a}
-\end{align*}
-
-We could take this even further, and use this kind of syntax when
-eliminating $\rform{}$: If we have such a closed $f$ then maybe we
-should be able to write, say
-\begin{align*}
-  g(w,\ctxlock{K},v) :\defeq f(v,v,\ctxlock{L}, w)
-\end{align*}
-first in first out!
 
 % But we are actually running into the weak variable rule issue
 % already. We want the type of the second one to be
@@ -1443,7 +1495,7 @@ This is annoying, because when $\admkey{L}{t}$ reaches a variable, it has to rec
 
 Maybe we can use some sugar to make it manageable:
 \begin{mathpar}
-\inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \ctxopen{L}{t}, \Gamma' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields \admkey{L}{t} a : \admkey{L}{t} A}
+\inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \ctxlock{L}^{t}, \Gamma' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \admkey{L}{t}\Gamma' \yields \admkey{L}{t} a : \admkey{L}{t} A}
 \end{mathpar}
 \begin{mathpar}
 \inferrule*[left=var]{~ \ctxlock{L}^\varnothing \notin \Gamma'}{\Gamma, x : A, \Gamma' \yields x : A}
@@ -1458,6 +1510,25 @@ but we will need a generalised version of this, for going under binders in $a : 
 \inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \Gamma'' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}{\Gamma, \ctxlock{L}, \Gamma', \admkey{L}{t}\Gamma'' \yields \admkey{L}{t} a : \admkey{L}{t} A}
 \end{mathpar}
 
+
+Notation idea: write keys like
+\begin{align*}
+  \key(t/\lockn{L}, s/\lockn{K}) x
+\end{align*}
+and write the unit substitution as
+\begin{align*}
+  \judge[i/\lockn{L}]
+\end{align*}
+so you get
+\begin{align*}
+  \left(\key(t/\lockn{L}, s/\lockn{K}) i\right)[i/\lockn{L}]
+  &\defeq   i[t/i] \defeq t
+\end{align*}
+or in that case maybe it should be postfix
+\begin{align*}
+  \left(i \key[t/\lockn{L}, s/\lockn{K}] \right)[i/\lockn{L}]
+  \defeq i [t/i]
+\end{align*}
 
 %\section{Combined With Cohesion??}
 %Heaven help us
