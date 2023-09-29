@@ -1,5 +1,6 @@
 @string{acm = "Association for Computing Machinery"}
 @string{lmcs = "Logical Methods in Computer Science"}
+@string{tac = "Theory and Applications of Categories"}
 
 @proceedings{fscd:2018,
   booktitle = {3rd International Conference on Formal Structures for Computation and Deduction},
@@ -52,6 +53,32 @@
   volume = {26},
 }
 
+@proceedings{types:2019,
+  author = {Bezem, Marc and Mahboubi, Assia},
+  editor = {Bezem, Marc and Mahboubi, Assia},
+  booktitle = {Proceedings of the 25th International Conference on Types for Proofs and Programs},
+  date = {2020},
+  doi = {10.4230/LIPIcs.TYPES.2019.0},
+  isbn = {978-3-95977-158-0},
+  issn = {1868-8969},
+  location = {Dagstuhl, Germany},
+  publisher = {Schloss Dagstuhl--Leibniz-Zentrum f\"{u}r Informatik},
+  series = {TYPES 2019},
+  volume = {175},
+}
+
+@incollection{buchholtz-morehouse:cubes,
+  title = {Varieties of cubical sets},
+  author = {Buchholtz, Ulrik and Morehouse, Edward},
+  booktitle = {Relational and algebraic methods in computer science},
+  date = {2017},
+  doi = {10.1007/978-3-319-57418-9_5},
+  pages = {77--92},
+  publisher = {Springer, Cham},
+  series = {Lecture Notes in Comput. Sci.},
+  volume = {10226},
+}
+
 @phdthesis{cavallo:thesis,
   title = {Higher Inductive Types and Internal Parametricity for Cubical Type Theory},
   author = {Cavallo, Evan},
@@ -82,18 +109,24 @@
   author = {Clouston, Ranald},
   booktitle = {Foundations of software science and computation structures},
   date = {2018},
-  doi = {10.1007/978-3-319-89366-2\_14},
+  doi = {10.1007/978-3-319-89366-2_14},
   pages = {258--275},
   publisher = {Springer, Cham},
   series = {Lecture Notes in Comput. Sci.},
   volume = {10803},
 }
 
-@online{fitchtt,
+@article{fitchtt,
   title = {Modalities and Parametric Adjoints},
-  author = {Gratzer, Daniel and Cavallo, Evan and Kavvos, {G. A.} and Guatto, Adrien and Birkedal, Lars},
-  url = {https://jozefg.github.io/papers/modalities-and-parametric-adjoints.pdf},
-  date = {2021},
+  author = {Gratzer, Daniel and Cavallo, Evan and Kavvos, G. A. and Guatto, Adrien and Birkedal, Lars},
+  date = {2022-04},
+  doi = {10.1145/3514241},
+  issn = {1529-3785},
+  journaltitle = {ACM Trans. Comput. Logic},
+  location = {New York, NY, USA},
+  number = {3},
+  publisher = acm,
+  volume = {23},
 }
 
 @inproceedings{mtt,
@@ -102,6 +135,48 @@
   crossref = {lics:2020},
   doi = {10.1145/3373718.3394736},
   pages = {492--506},
+}
+
+@book{kock:sdg,
+  title = {Synthetic Differential Geometry},
+  author = {Kock, Anders},
+  date = {2006},
+  doi = {10.1017/CBO9780511550812},
+  edition = {2},
+  isbn = {978-0-521-68738-6},
+  pages = {xii+233},
+  publisher = {Cambridge University Press, Cambridge},
+  series = {London Mathematical Society Lecture Note Series},
+  volume = {333},
+}
+
+@online{kock-reyes:differential-equations,
+  title = {Fractional Exponent Functors and Categories of Differential Equations},
+  author = {Kock, Anders and Reyes, Gonzalo E.},
+  url = {https://tildeweb.au.dk/au76680/ODE55.pdf},
+  date = {1998},
+}
+
+@article{kock-reyes:fractional,
+  title = {Aspects of fractional exponent functors},
+  author = {Kock, Anders and Reyes, Gonzalo E.},
+  url = {http://www.tac.mta.ca/tac/volumes/1999/n10/5-10abs.html},
+  date = {1999},
+  journaltitle = tac,
+  pages = {No. 10,251--265},
+  volume = {5},
+}
+
+@article{lawvere:towards,
+  title = {Toward the description in a smooth topos of the dynamically possible motions and deformations of a continuous body},
+  author = {Lawvere, F. William},
+  url = {http://www.numdam.org/item/?id=CTGDC_1980__21_4_377_0},
+  date = {1980},
+  journaltitle = {Cahiers de Topologie et G\'{e}om\'{e}trie Diff\'{e}rentielle},
+  note = {Third Colloquium on Categories (Amiens, 1980), Part I},
+  number = {4},
+  pages = {377--392},
+  volume = {21},
 }
 
 @article{lawvere:adjoints,
@@ -114,6 +189,17 @@
   number = {1-3},
   pages = {105--111},
   volume = {316},
+}
+
+@article{lawvere:adjointness-foundations,
+  title = {Adjointness in foundations},
+  author = {Lawvere, F. William},
+  url = {http://www.tac.mta.ca/tac/reprints/articles/16/tr16abs.html},
+  date = {2006},
+  journaltitle = {Repr. Theory Appl. Categ.},
+  note = {Reprinted from Dialectica {{\bf{2}}3} (1969)},
+  number = {16},
+  pages = {1--16},
 }
 
 @inproceedings{lops,
@@ -136,6 +222,13 @@
   pubstate = {submitted},
 }
 
+@article{dependable-atomicity,
+  title = {Dependable Atomicity in Type Theory},
+  author = {Nuyts, Andreas and Devriese, Dominique},
+  url = {https://lirias.kuleuven.be/retrieve/540872},
+  crossref = {types:2019},
+}
+
 @article{yetter:tiny,
   title = {On right adjoints to exponential functors},
   author = {Yetter, David},
@@ -146,7 +239,7 @@
   number = {3},
   pages = {287--304},
   related = {yetter:tiny-erratum},
-  relatedstring = {Errata in},
+  relatedstring = {See also},
   volume = {45},
 }
 

@@ -121,6 +121,7 @@ mincrossrefs=99]{biblatex}
   {\scalebox{0.5}{\text{\faKey}}} {\scalebox{0.4}{\text{\faKey}}} }
 
 \newcommand{\rbindsym}{\raisebox{-0.5pt}{\scalerel*{\reflectbox{\rotatebox[origin=c]{185}{$\lambda$}}}{\lambda}}}
+% \newcommand{\rbindsym}{\raisebox{-0.55pt}{\scalerel*{\rotatebox[origin=c]{185}{$\lambda$}}{\lambda}}\hspace{-0.06em}}
 \newcommand{\rbind}[1]{\rbindsym{} #1.}
 % lol
 % \newcommand{\rbind}[1]{. #1 \rbindsym{}}
@@ -140,16 +141,24 @@ mincrossrefs=99]{biblatex}
 \newcommand{\admbra}[1]{[ #1 ]}
 \newcommand{\subkeye}[2]{\admbra{#1/\key_{#2}}}
 \newcommand{\subkey}[2]{\subkeye{#1}{\lockn{#2}}}
+\newcommand{\subkeyeann}[5]{\admbra{\key(#3; #1/#2; #4; #5)}}
+\newcommand{\subkeyann}[5]{\subkeyeann{#1}{\lockn{#2}}{#3}{#4}{#5}}
+\newcommand{\subkeyetele}[4]{\admbra{\key(#3; #1/#2; #4)}}
+\newcommand{\subkeytele}[4]{\subkeyetele{#1}{\lockn{#2}}{#3}{#4}}
 \newcommand{\substucke}[2]{\stubra{#1/\key_{#2}}}
 \newcommand{\substuck}[2]{\substucke{#1}{\lockn{#2}}}
 % \newcommand{\sublock}[2]{\admbra{\lock_{\lockn{#1}}/#2}}
 \newcommand{\sublock}[2]{\admbra{\rbindsym{} #2. /\lock_{\lockn{#1}} }}
 % \newcommand{\sublock}[2]{\admbra{ .#2 \rbindsym{} /\lock_{\lockn{#1}} }}
 
+\newcommand{\unit}[3]{\mathsf{unit}_{#1, #2, \lockn{#3}}}
+\newcommand{\counit}[3]{\mathsf{counit}_{#1, \lockn{#2}, #3}}
+
 \newcommand{\rformsym}{\surd}
-\newcommand{\rforme}[2]{\ThisStyle{\raisebox{0.07em}{$\SavedStyle \surd_{\hspace{-0.25em}#1}$}} #2}
+\newcommand{\rformslicesym}[1]{\surd_{\mkern-6mu/#1}}
+\newcommand{\rforme}[2]{\ThisStyle{\raisebox{0.07em}{$\SavedStyle \rformsym_{\hspace{-0.25em}#1}$}} #2}
 \newcommand{\rform}[2]{\rforme{\lockn{#1}}{#2}}
-\newcommand{\rformu}[1]{\ThisStyle{\raisebox{0.07em}{$\SavedStyle \surd$}} #1}
+\newcommand{\rformu}[1]{\ThisStyle{\raisebox{0.07em}{$\SavedStyle \rformsym$}} #1}
 % \newcommand{\rintroe}[2]{\mathsf{root}_{#1}(#2)}
 \newcommand{\rintroe}[2]{\lock_{#1}. #2}
 \newcommand{\rintro}[2]{\rintroe{\lockn{#1}}{#2}}
@@ -164,6 +173,17 @@ mincrossrefs=99]{biblatex}
 
 \newcommand{\rget}[1]{{#1}_{\downharpoonleft}}
 
+% Cubical stuff
+\newcommand{\Set}{\mathsf{Set}}
+\newcommand{\El}{\mathsf{El}}
+\newcommand{\univfib}{\mathsf{U}}
+\newcommand{\Int}{\mathbb{I}}
+\DeclareMathOperator{\isFib}{\mathsf{isFib}}
+\DeclareMathOperator{\Fib}{\mathsf{Fib}}
+\DeclareMathOperator{\isNewFib}{\mathsf{isNewFib}}
+\DeclareMathOperator{\NewFib}{\mathsf{NewFib}}
+\newcommand{\Compstr}{\mathsf{C}}
+
 \usepackage{hyperref}
 \usepackage{cleveref}
 \hypersetup{colorlinks,citecolor=darkgreen,linkcolor=darkgreen}
@@ -177,13 +197,13 @@ mincrossrefs=99]{biblatex}
 
 We describe a type theory that makes a fixed type $\Tiny$ a `tiny
 object': there is a type former $\rformu$ that is the amazing right
-adjoint to $(\Tiny \to -)$. Of necessity this is an \emph{external}
-right adjoint, and so the context structure of ordinary type theory
-will have to be modified to support it.
+adjoint to $(\Tiny \to -)$. Of necessity this is an external right
+adjoint, and so the context structure of ordinary type theory will
+have to be modified to support it.
 
 We add $\rformu$ as a `Fitch style'
 modality~\cite{clouston:fitch-style}, where the type former $\rformu$
-is made right-adjoint to a context lock. Such modalities are
+is made right-adjoint to an operation on contexts. Such modalities are
 particularly nice when they are a \emph{double} right adjoint, and
 FitchTT~\cite{fitchtt} investigates adding modalities of this kind to
 MLTT. We are in such a situation, of course, because
@@ -195,23 +215,23 @@ a specialised theory for it. Specifically, the leftmost adjoint
 $(- \times \Tiny)$ already exists as an operation on contexts: it is
 simply context extension with $i : \Tiny$. We allow $\Tiny$ to be an
 \emph{ordinary type}, rather than a pre-type or special piece of
-syntax. The only new context former needed is something corresponding
-to $(\Tiny \to -)$, which we write as $\lock$.
+syntax. This flexibility is essential for applications in synthetic
+differential geometry, where, for example, the type of (first-order)
+infinitesimals defined by
+$D :\defeq \{ x : \mathbb{R} \mid x^2 = 0 \}$ is tiny. The only new
+context former needed is something corresponding to $(\Tiny \to -)$,
+which we write as context extension with a $lock$.
 
 To make $(-,i:\Tiny) \dashv (-,\lock)$ on contexts, we need unit
 $\Gamma \to (\Gamma,i : \Tiny, \lock)$ and counit
-$(\Gamma,\lock,i : \Tiny) \to \Gamma$
-substitutions. In~\cite{fitchtt}, these are added axiomatically, and
-the type theory is presented in a variable-free CwF style where these
-explicit substitutions are pushed around manually. The downside of the
-approach is that figuring out how to use a variable could be
-challenging: we may have to devise by hand a complicated explicit
-substitution that extracts the variable from the context. It is
-expected that FitchTT satisfies strong normalisation, and so there is
-a set of normal forms for variable uses, but this does not assist a
-user of the type theory in writing one down.  One of our aims is to
-give a fully explicit variable rule, which builds the in normal forms
-of these `stuck substitutions'.
+$(\Gamma,\lock,i : \Tiny) \to \Gamma$ substitutions. In~\cite{fitchtt}
+these are added axiomatically, and the type theory is presented in a
+variable-free CwF style where these explicit substitutions are pushed
+around manually. The downside of the approach is that figuring out how
+to use a variable could be challenging: we may have to devise by hand
+an explicit substitution that extracts the variable from the context.
+One of our aims is to give a fully explicit variable rule which
+builds in the normal forms of these `stuck substitutions'.
 
 The reason this gets interesting is that, because $\Tiny$ is an
 ordinary type, we can substitute \emph{any term} $t : \Tiny$ for $i$
@@ -220,7 +240,7 @@ parameterised by a genuine term $t : \Tiny$. The counit rule only gets
 stuck on the ordinary variable rule, so every use of a variable in
 this theory can have (possibly many) attached terms of $\Tiny$
 corresponding to these stuck counits. Having $\Tiny$ as an ordinary
-type contrasts with
+type distinguishes this type theory from
 \cite{cavallo-harper:parametricity-for-ctt,cavallo:thesis} and
 \cite[Section 5]{fitchtt}, where the $\Gamma,i:\Tiny$ context
 extension is a special piece of syntax, and so only special `terms'
@@ -233,18 +253,18 @@ $\Pi_\Tiny : \mathcal{E}/\Tiny \to \mathcal{E}$. This makes the rules
 for the $\rformu$ type much simpler, and (conjecturally) lets us
 maintain admissibility of substitution, normalisation, etc. And, maybe
 surprisingly, a right adjoint to the dependent function space is
-derivable from our simply-typed version.
+derivable internally from our simply-typed version.
 
-In~\cite{lops}, a tiny interval $\mathbb{I}$ is used to internally
-construct a universe that classifies fibrations. The $\rformu$ type
-former is described by a collection of axioms, and the fact that the
-adjunction is external is enforced by requiring the inputs to these
-axioms to be `crisp', roughly, protected by a use of the global
-sections/discrete inclusion modality $\flat$. The result is an
-equivalence
+In~\cite{lops}, a tiny interval $\mathbb{I}$ is used to give an
+internal construction of a universe that classifies fibrations. The
+$\rformu$ type former is described by a collection of axioms, and the
+fact that the adjunction is external is enforced by requiring the
+inputs to these axioms to be `crisp', roughly, protected by a use of
+the global sections/discrete inclusion modality $\flat$. Internally,
+this manifests as an equivalence
 $\flat((\Tiny \to A) \to B) \equiv \flat(A \to \rformu B)$, but we
-will see that this is more restrictive than necessary. If we have the
-$\rformu$ type former built-in, then we can prove an equivalence
+will see that this is more restrictive than necessary. Once we have
+the $\rformu$ type former built-in, we can prove an equivalence
 $\rformu ((\Tiny \to A) \to B) \equiv (A \to \rformu B)$, where $A$
 and $B$ do not have to be `global types'. (But the dependency of $B$
 is still somewhat restricted.)
@@ -261,16 +281,40 @@ situation''~\cite[Section 3]{lawvere:adjoints}.
 \section{Contexts and Variables}
 
 The $\rformu$ type former will be added by making it right-adjoint to
-a judgemental version of ``$\Tiny \to \Gamma$'', which we write as
-$\Gamma, \ctxlock{L}$. This first section will be spent adding the
-necessary rules for $\Gamma, \ctxlock{L}$ to behave like functions
-into $\Gamma$. These rules are completely structural, independent of
-any rules for types (besides the existence of a type $\Tiny$).
+a judgemental version of ``$\Tiny \to \Gamma$'' which we write as
+$\Gamma, \ctxlock{L}$, where, to refer to it later, the lock is
+annotated with a `lock name' $\lockn{L}$. This first section will be
+spent adding the necessary rules for $\Gamma, \ctxlock{L}$ to behave
+like functions into $\Gamma$.
 
-There are two new base rules, the context lock and the modified
-variable rule. There are two new admissible rules, corresponding to
-precomposition with the counit and unit of the
-$(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
+A simple way to achieve this is to assert axiomatic unit and counit
+substitutions for the $(- \times \Tiny) \dashv (\Tiny \to -)$
+adjunction, as in the following
+\begin{mathpar}
+  \inferrule*[left=tiny-form]{\Gamma \ctx}{\Gamma \yields \Tiny \type} \and
+  \inferrule*[left=ctx-lock]{\Gamma \ctx}{\Gamma, \ctxlock{L} \ctx} \\
+  \inferrule*[left=unit-sub]
+  {\Gamma \ctx}
+  {\Gamma \yields \unit{\Gamma}{i}{L} : \Gamma, i : \Tiny, \ctxlock{L}}
+  \and
+  \inferrule*[left=counit-sub]
+  {\Gamma \ctx}
+  {\Gamma, \ctxlock{L}, i : \Tiny \yields \counit{\Gamma}{L}{i} : \Gamma}
+\end{mathpar}
+together with equations that explain how these explicit substitutions
+annihilate.
+
+We think we can do better, however, and give normal forms for the
+placement of these explicit substitutions. The examples in later
+sections show that it is quite feasible to work in the resulting type
+theory by hand.
+
+Besides the context lock, we only need one additional base rule: a
+modified version of the variable rule that builds in stuck instances
+of the counit substitution. The rule is completely structural and
+independent of the rules for types (besides the existence of $\Tiny$).
+There are two new admissible rules, corresponding to precomposition
+with the counit and unit substitutions.
 
 \begin{itemize}
 \item \textbf{The Tiny Type.} There is a closed type $\Tiny$.
@@ -288,18 +332,17 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
 
 \item \textbf{Counit.} Because a lock on a context is just a function
   into that context, we can use variables to the left of a lock if we
-  can provide an argument to the function: this corresponds to the
-  counit $(\Gamma, \ctxlock{L}, i : \Tiny) \to \Gamma$ of the
-  $(- \times \Tiny) \dashv (\Tiny \to -)$ adjunction, with some
-  precomposition and contraction built in. The simplest situation we
-  can encounter is
+  can provide an argument to the function: this corresponds to
+  precomposition with the counit substitution, with a substitution
+  for $\Tiny$ and some contractions built-in.
+
+  The simplest situation we can encounter is
   \begin{mathpar}
-    \inferrule*[left=counit?,fraction={-{\,-\,}-}]{\Gamma \yields a :
-      A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny \and \lock
-      \notin \Gamma'}{\Gamma, \ctxlock{L}, \Gamma' \yields
-      a\subkey{t}{L} : A\subkey{t}{L}}
+    \inferrule*[left=counit?,fraction={-{\,-\,}-}]
+    {\Gamma \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny \and \lock \notin \Gamma'}
+    {\Gamma, \ctxlock{L}, \Gamma' \yields a\subkey{t}{L} : A\subkey{t}{L}}
   \end{mathpar}
-  corresponding to the composite
+  corresponding (non-dependently) to the composite
   \begin{align*}
     (\Tiny \to \Gamma) \times \Gamma'
     \xrightarrow{[\id, t]} (\Tiny \to \Gamma) \times \Gamma' \times
@@ -321,11 +364,18 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
   We will need a generalised version of this counit rule, for going
   under binders in the term $a : A$. The actual counit rule is then
   \begin{mathpar}
-    \inferrule*[left=counit,fraction={-{\,-\,}-}]{\Gamma, \Gamma''
-      \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t :
-      \Tiny}{\Gamma, \ctxlock{L}, \Gamma', \Gamma'' \subkey{t}{L}
-      \yields a \subkey{t}{L} : A \subkey{t}{L} }
+    \inferrule*[left=counit,fraction={-{\,-\,}-}]
+    {\Gamma, \Gamma'' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}
+    {\Gamma, \ctxlock{L}, \Gamma', \Gamma'' \subkey{t}{L} \yields a \subkey{t}{L} : A \subkey{t}{L} } \\
+    \inferrule*[left=counit-tele,fraction={-{\,-\,}-}]
+    {\Gamma \yields \Gamma'' \tele \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}
+    {\Gamma, \ctxlock{L}, \Gamma' \yields \Gamma'' \subkey{t}{L} \tele}
   \end{mathpar}
+
+  Formally, the contexts and telescopes used should be annotated in
+  the syntax. When it is necessary to make clear which are used, we
+  will write $a \subkeyann{t}{L}{\Gamma}{\Gamma'}{\Gamma''}$ and
+  $\Gamma''\subkeytele{t}{L}{\Gamma}{\Gamma'}$.
 
 \item \textbf{Variable Usage.} To use a variable $x : A$ that is
   behind some context locks, we have to provide a term $t_i : \Tiny$
@@ -350,148 +400,8 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
   applied to it: typically these counits will not be stuck on the type
   $A$ unless $A$ is itself a variable.
 
-\item \textbf{Calculating the Counit.}  On a general term $b : B$, the
-  operation $b\subkey{t}{L}$ is calculated as follows.  Starting with
-  a term $\Gamma \yields b : B$, we induct on $b$ until we reach an
-  instance of the variable rule, say for then variable $x : A$.
-
-  We first dispense with the easy case. Suppose the variable is in
-  $\Gamma''$, so
-  \begin{align*}
-    \Gamma, \Gamma_1'', x : A, \Gamma_2'' &\ctx \\
-    \locksin{\Gamma_2''} &\defeq \lockn{K}_{1}, \dots, \lockn{K}_n
-  \end{align*}
-  and the variable usage looks like
-  \begin{align*}
-    \Gamma, \Gamma_1'', x : A, \Gamma_2''
-    &\yields x \substucke{s_1}{\lockn{K}_1} \dots \substucke{s_n}{\lockn{K}_n} \\
-    &: A\subkeye{s_1}{\lockn{K}_1} \dots \subkeye{s_n}{\lockn{K}_n}
-  \end{align*}
-  Then access to $x$ is not affected by the addition of the lock
-  $\ctxlock{L}$, so we can reapply the variable rule. The terms $s_i$
-  used on the other keys, however, may themselves use variables from
-  $\Gamma$. These variables lie behind the new lock $\ctxlock{L}$, so
-  we must proceed with applying the same \rulen{counit} to the $s_i$:
-  \begin{align*}
-    \Gamma, \ctxlock{L}, \Gamma', \Gamma_1'', x : A, \Gamma_2''
-    &\yields x \substucke{s_1\subkey{t}{L}}{\lockn{K}_1} \dots \substucke{s_n\subkey{t}{L}}{\lockn{K}_n} \\
-    &: A\subkeye{s_1\subkey{t}{L}}{\lockn{K}_1} \dots \subkeye{s_n\subkey{t}{L}}{\lockn{K}_n}
-  \end{align*}
-
-  Now for the difficult case, when $x : A$ is in $\Gamma$. For now,
-  say that all the terms of $\Tiny$ that are involved are closed.
-  Suppose the context has the form
-  \begin{align*}
-    \Gamma_1, x : A, \Gamma_2, \Gamma'' &\ctx \\
-    \locksin{\Gamma_2} &\defeq \lockn{K}_1, \dots,\lockn{K}_i \\
-    \locksin{\Gamma''} &\defeq \lockn{K}_{i+1}, \dots, \lockn{K}_n
-  \end{align*}
-  so that the variable usage looks like
-  \begin{align*}
-    \Gamma_1, x : A, \Gamma_2, \Gamma''
-    &\yields x \substucke{s_1}{\lockn{K}_1} \dots
-      \substucke{s_{i}}{\lockn{K}_{i}}
-      \substucke{s_{i+1}}{\lockn{K}_{i+1}}
-      \dots \substucke{s_n}{\lockn{K}_n} \\
-    &: A\subkeye{s_1}{\lockn{K}_1} \dots
-      \subkeye{s_{i}}{\lockn{K}_{i}}
-      \subkeye{s_{i+1}}{\lockn{K}_{i+1}}
-      \dots \subkeye{s_n}{\lockn{K}_n}
-  \end{align*}
-  Then we slot the new $\subkey{t}{L}$ into place:
-  \begin{align*}
-    \Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma'' \yields
-    (&x \substucke{s_1}{\lockn{K}_1} \dots
-    \substucke{s_{i}}{\lockn{K}_{i}} \substucke{s_{i+1}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n}{\lockn{K}_n}) \subkey{t}{L} \\
-    :\defeq {}
-    &x \substucke{s_1}{\lockn{K}_1} \dots
-    \substucke{s_{i}}{\lockn{K}_{i}} \substuck{t}{L} \substucke{s_{i+1}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n}{\lockn{K}_n}
-  \end{align*}
-
-  Working informally, this means counting how many
-  $\ctxlocke{\lockn{K}_i}$ are created between the application of
-  $\subkey{t}{L}$ and the variable (by the use of some of the typing
-  rules), and placing $\subkey{t}{L}$ to the left of all the newly
-  created $\ctxlocke{\lockn{K}_i}$.
-
-  When $t : \Tiny$ is not closed, so that
-  $\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma' \yields t : \Tiny$,
-  the variables used in the term $t$ itself are now locked behind the
-  locks in $\Gamma''$, by the time we reach the variable $x$. We
-  therefore need to (admissibly) apply
-  \begin{align*}
-    \subkeye{s_{i+1}}{\lockn{K}_{i+1}} \dots \subkeye{s_{n}}{\lockn{K}_{n}}
-  \end{align*}
-  to the term $t$, so:
-  \begin{align*}
-    &x \substucke{s_1}{\lockn{K}_1} \dots
-    \substucke{s_{i}}{\lockn{K}_{i}} \substucke{s_{i+1}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n}{\lockn{K}_n} \subkey{t}{L} \\
-    :\defeq {}
-    &x \substucke{s_1}{\lockn{K}_1} \dots
-    \substucke{s_{i}}{\lockn{K}_{i}} \substucke{(t\subkeye{s_{i+1}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n}{\lockn{K}_n})}{L} \substucke{s_{i+1}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n}{\lockn{K}_n}
-  \end{align*}
-
-
-  Instead, say that the terms $s_i$ used on the other keys are not
-  closed, and so the variables used in them might now lie behind the
-  new lock $\ctxlock{L}$. The term $t$ is used to unlock them:
-  \begin{alignat*}{2}
-    &x &&\substucke{s_1}{\lockn{K}_1} \dots
-    \substucke{s_{i}}{\lockn{K}_{i}} \substucke{s_{i+1}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n}{\lockn{K}_n} \subkey{t}{L} \\
-    :\defeq {}
-    &x
-    &&\substucke{s_1\subkey{t}{L}}{\lockn{K}_1} \\
-    &&& \dots \\
-    &&& \substucke{s_{i}\subkey{t}{L}}{\lockn{K}_{i}} \\
-    &&& \substuck{t}{L} \\
-    &&& \substucke{s_{i+1}\subkey{t}{L}}{\lockn{K}_{i+1}} \\
-    &&& \dots \\
-    &&& \substucke{s_n\subkey{t}{L}}{\lockn{K}_n}
-  \end{alignat*}
-
-  Finally, and slightly horrifyingly, the two complications can happen
-  at the same time, yielding our actual definition:
-  \begin{alignat*}{2}
-    &x &&\substucke{s_1}{\lockn{K}_1} \dots
-    \substucke{s_{i}}{\lockn{K}_{i}} \substucke{s_{i+1}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n}{\lockn{K}_n} \subkey{t}{L} \\
-    :\defeq {}
-    &x
-    &&\substucke{s_1\subkey{t}{L}}{\lockn{K}_1} \\
-    &&& \dots \\
-    &&& \substucke{s_{i}\subkey{t}{L}}{\lockn{K}_{i}} \\
-    &&& \substuck{t\subkeye{s_{i+1}\subkey{t}{L}}{\lockn{K}_{i+1}} \dots \subkeye{s_n\subkey{t}{L}}{\lockn{K}_n}}{L} \\
-    &&& \substucke{s_{i+1}\subkey{t}{L}}{\lockn{K}_{i+1}} \\
-    &&& \dots \\
-    &&& \substucke{s_n\subkey{t}{L}}{\lockn{K}_n}
-  \end{alignat*}
-
-  \mvrnote{It's not so obvious to me that this terminates!}
-  % (The collective size of the terms $s_n, \dots, s_{i+1}, t$ is
-  % smaller than the size of $t$ and $b$, so this process eventually
-  % terminates.)
-
-  \begin{mathpar}
-    \inferrule*
-    {\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma' \yields t :
-      \Tiny \and
-      \inferrule*
-      {\Gamma_1, x : A, \Gamma_2, \Gamma', \Gamma_1'', \ctxlock{K}, \Gamma_2'' \yields s : \Tiny \and
-        \Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma' \yields t : \Tiny
-      }
-      {\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma', \Gamma_1''\subkey{t}{L}, \ctxlock{K}, \Gamma_2''\subkey{t}{L} \yields s\subkey{t}{L} : \Tiny}
-    }
-    {\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma', \Gamma_1''\subkey{t}{L}, \ctxlock{K}, \Gamma_2'' \subkey{t}{L} \yields t\subkey{s\subkey{t}{L}}{K} : \Tiny}
-  \end{mathpar}
-
 \item \textbf{Substitution.} Ordinary substitution into a variable turns these
-  `stuck' counits back into admissible ones.
+  `stuck' counits back into admissible ones, and continues into the attached terms of $\Tiny$.
   \begin{align*}
     % \Gamma, x : A, \Gamma'
     % &\yields x \substucke{t_1}{\lockn{L}_1} \dots
@@ -499,9 +409,186 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
     \Gamma, \Gamma'[a/x]
     &\yields (x \substucke{t_1}{\lockn{L}_1} \dots
       \substucke{t_n}{\lockn{L}_n})[a/x] \\
-    &:\defeq a\subkeye{t_1}{\lockn{L}_1} \dots
-      \subkeye{t_n}{\lockn{L}_n} : A\subkeye{t_1}{\lockn{L}_1} \dots \subkeye{t_n}{\lockn{L}_n}
+    &:\defeq a\subkeye{t_1[a/x]}{\lockn{L}_1} \dots
+      \subkeye{t_n[a/x]}{\lockn{L}_n} : A\subkeye{t_1[a/x]}{\lockn{L}_1} \dots \subkeye{t_n[a/x]}{\lockn{L}_n}
   \end{align*}
+  
+\item \textbf{Calculating the Counit.} For now, assume that all the
+  terms of $\Tiny$ that are involved are closed. To evaluate
+  $b\subkey{t}{L}$ on a term $\Gamma \yields b : B$, induct on $b$
+  until we reach an instance of the variable rule, say for the
+  variable $x : A$.
+
+  As always, there are cases depending on where in the context $x$
+  lies. The typical case is when $x : A$ is in $\Gamma$, so the
+  context has form
+  \begin{align*}
+    \Gamma_1, x : A, \Gamma_2, \Gamma'' &\ctx \\
+    \locksin{\Gamma_2} &\defeq \lockn{J}_1, \dots,\lockn{J}_m \\
+    \locksin{\Gamma''} &\defeq \lockn{K}_{1}, \dots, \lockn{K}_n
+  \end{align*}
+  and the variable usage looks like
+  \begin{align*}
+    \Gamma_1, x : A, \Gamma_2, \Gamma''
+    &\yields x \substucke{j_1}{\lockn{J}_1} \dots
+      \substucke{j_{m}}{\lockn{J}_{m}}
+      \substucke{k_1}{\lockn{K}_{1}}
+      \dots \substucke{k_n}{\lockn{K}_n} \\
+    &: A\subkeye{j_1}{\lockn{J}_1} \dots
+      \subkeye{j_{m}}{\lockn{J}_{m}}
+      \subkeye{k_1}{\lockn{K}_{1}}
+      \dots \subkeye{k_n}{\lockn{K}_n}
+  \end{align*}
+  Then we slot the new $\subkey{t}{L}$ into place, and leave it stuck:
+  \begin{align*}
+    \Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma'' \yields
+    (&x \substucke{j_1}{\lockn{J}_1} \dots
+      \substucke{j_{m}}{\lockn{J}_{m}}
+      \substucke{k_1}{\lockn{K}_{1}}
+       \dots \substucke{k_n}{\lockn{K}_n}) \subkey{t}{L} \\
+    :\defeq {}
+     &x \substucke{j_1}{\lockn{J}_1} \dots
+       \substucke{j_{m}}{\lockn{J}_{m}}
+       \substuck{t}{L}
+      \substucke{k_1}{\lockn{K}_{1}}
+       \dots \substucke{k_n}{\lockn{K}_n}
+  \end{align*}
+
+  When working informally, this means counting how many
+  $\ctxlocke{\lockn{K}_i}$ are created between the application of
+  $\subkey{t}{L}$ and the variable (by the use of some of the typing
+  rules), and placing $\subkey{t}{L}$ to the left of all the newly
+  created $\ctxlocke{\lockn{K}_i}$.
+
+  If instead $x : A$ is in $\Gamma''$, so
+  $\Gamma, \Gamma_1'', x : A, \Gamma_2'' \ctx$, suppose the locks
+  coming after $x$ are
+  $\locksin{\Gamma_2''} \defeq \lockn{K}_{1}, \dots, \lockn{K}_n$ and
+  the variable usage looks like
+  \begin{align*}
+    \Gamma, \Gamma_1'', x : A, \Gamma_2''
+    &\yields x \substucke{k_1}{\lockn{K}_1} \dots \substucke{k_n}{\lockn{K}_n} \\
+    &: A\subkeye{k_1}{\lockn{K}_1} \dots \subkeye{k_n}{\lockn{K}_n}
+  \end{align*}
+  Access to $x$ is not affected by the addition of the lock
+  $\ctxlock{L}$ (which is placed to the left of it), so the variable
+  usage is left unchanged.
+
+  Things are trickier with general open terms of $\Tiny$. A couple of
+  complications can arise: \mvrnote{These are a bit gnarly, so you
+    should probably skip this list on first read}
+  \begin{itemize}
+  \item  When $t : \Tiny$ is not closed, so that
+    $\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma' \yields t : \Tiny$,
+    the variables used in the term $t$ itself are now locked behind the
+    locks in $\Gamma''$ by the time we reach the variable $x$. We
+    therefore need to (admissibly) apply
+    \begin{align*}
+      \subkeye{k_1}{\lockn{K}_{1}} \dots \subkeye{k_n}{\lockn{K}_n}
+    \end{align*}
+    to the term $t$, so:
+    \begin{align*}
+      &x \substucke{j_1}{\lockn{J}_1} \dots
+      \substucke{j_{m}}{\lockn{J}_{m}}
+      \substucke{k_1}{\lockn{K}_{1}}
+      \dots \substucke{k_n}{\lockn{K}_n} \subkey{t}{L} \\
+      :\defeq {}
+      &x \substucke{j_1}{\lockn{J}_1} \dots
+        \substucke{j_{m}}{\lockn{J}_{m}} \substuck{(t\subkeye{k_1}{\lockn{K}_{1}}
+      \dots \subkeye{k_n}{\lockn{K}_n})}{L} \substucke{k_1}{\lockn{K}_{1}}
+      \dots \substucke{k_n}{\lockn{K}_n}
+    \end{align*}
+  \item Instead, the terms $j_i$ and $k_i$ may not closed, and so the variables
+    used in them might now lie behind the new lock $\ctxlock{L}$. The
+    term $t$ is used to unlock them:
+    \begin{alignat*}{2}
+      &x && \substucke{j_1}{\lockn{J}_1} \dots
+            \substucke{j_{m}}{\lockn{J}_{m}}
+            \substucke{k_1}{\lockn{K}_{1}}
+            \dots \substucke{k_n}{\lockn{K}_n} \subkey{t}{L} \\
+      :\defeq {}
+      &x
+         &&\substucke{j_1\subkey{t}{L}}{\lockn{J}_1} \\
+      &&& \dots \\
+      &&& \substucke{j_{m}\subkey{t}{L}}{\lockn{J}_{m}} \\
+      &&& \substuck{t}{L} \\
+      &&& \substucke{k_{1}\subkey{t}{L}}{\lockn{K}_{1}} \\
+      &&& \dots \\
+      &&& \substucke{k_n\subkey{t}{L}}{\lockn{K}_n}
+    \end{alignat*}
+
+  \item Finally, and slightly horrifyingly, the two complications can happen
+  at the same time, yielding the final, general definition:
+  \begin{alignat*}{2}
+    &x && \substucke{j_1}{\lockn{J}_1} \dots
+          \substucke{j_{m}}{\lockn{J}_{m}}
+          \substucke{k_1}{\lockn{K}_{1}}
+          \dots \substucke{k_n}{\lockn{K}_n} \subkey{t}{L} \\
+    :\defeq {}
+    &x
+       &&\substucke{j_1\subkey{t}{L}}{\lockn{J}_1} \\
+    &&& \dots \\
+    &&& \substucke{j_{m}\subkey{t}{L}}{\lockn{J}_{m}} \\
+    &&& \substuck{t\subkeye{k_{1}\subkey{t}{L}}{\lockn{K}_{1}} \dots \subkeye{k_n\subkey{t}{L}}{\lockn{K}_n}}{L} \\
+    &&& \substucke{k_{1}\subkey{t}{L}}{\lockn{K}_{1}} \\
+    &&& \dots \\
+    &&& \substucke{k_n\subkey{t}{L}}{\lockn{K}_n}    
+  \end{alignat*}
+  \mvrnote{It's not so obvious to me that this terminates!}
+
+\iffalse  
+  \item The terms $k_i$ used on the other keys, however,
+  may themselves use variables from $\Gamma$. These variables lie
+  behind the new lock $\ctxlock{L}$, so we must proceed with applying
+  the same \rulen{counit} to the $k_i$:
+  \begin{align*}
+    \Gamma, \ctxlock{L}, \Gamma', \Gamma_1'', x : A, \Gamma_2''
+    &\yields x \substucke{k_1\subkey{t}{L}}{\lockn{K}_1} \dots \substucke{k_n\subkey{t}{L}}{\lockn{K}_n} \\
+    &: A\subkeye{k_1\subkey{t}{L}}{\lockn{K}_1} \dots \subkeye{k_n\subkey{t}{L}}{\lockn{K}_n}
+  \end{align*}
+  \fi
+  \end{itemize}
+
+  Let's write out typing derivation in the situation where there are
+  no other context locks around, making explicit the telescopes that
+  are used.
+  
+  Given the variable
+  \begin{mathpar}
+    \inferrule*
+    {\Gamma_1, x : A, \Gamma_2, \Gamma_1'', \ctxlock{K}, \Gamma_2'' \yields s : \Tiny}
+    {\Gamma_1, x : A, \Gamma_2, \Gamma_1'', \ctxlock{K}, \Gamma_2'' \yields x\substuck{s}{K} : A}
+  \end{mathpar}
+  so that 
+  \begin{mathpar}
+    \inferrule*{
+    \inferrule*
+    {\Gamma_1, x : A, \Gamma_2, \Gamma_1'', \ctxlock{K}, \Gamma_2'' \yields s : \Tiny}
+    {\Gamma_1, x : A, \Gamma_2, \Gamma_1'', \ctxlock{K}, \Gamma_2'' \yields x\substuck{s}{K} : A} \and
+    \Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma' \yields t : \Tiny}
+    {\Gamma_1, x : A, \Gamma_2, \Gamma', \Gamma_1''\subkey{t}{L}, \ctxlock{K}, \Gamma_2''\subkey{t}{L} \yields x\substuck{s}{K}\subkey{t}{L} : A}
+  \end{mathpar}
+
+  Our definition sets this equal to
+  $x\substuck{(t\subkey{s\subkey{t}{L}}{K})}{L}\substuck{s}{K}$, where
+  \begin{align*}
+    t\subkey{s\subkey{t}{L}}{K} \defeq t\subkeyann{s\subkeyann{t}{L}{\Gamma_1, x : A, \Gamma_2}{\Gamma'}{\Gamma''_1, \ctxlock{K}, \Gamma''_2}}{K}{\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma', \Gamma_1''\subkey{t}{L}}{\Gamma_2'' \subkey{t}{L}}{\cdot}
+  \end{align*}
+  has typing derivation
+  \begin{mathpar}
+    \inferrule*
+    {\inferrule*
+      {\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma' \yields t : \Tiny}
+      {\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma', \Gamma_1''\subkey{t}{L} \yields t : \Tiny}      
+    \and
+      \inferrule*
+      {\Gamma_1, x : A, \Gamma_2, \Gamma_1'', \ctxlock{K}, \Gamma_2'' \yields s : \Tiny \and
+        \Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma' \yields t : \Tiny
+      }
+      {\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma', \Gamma_1''\subkey{t}{L}, \ctxlock{K}, \Gamma_2''\subkey{t}{L} \yields s\subkey{t}{L} : \Tiny}
+    }
+    {\Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma', \Gamma_1''\subkey{t}{L}, \ctxlock{K}, \Gamma_2'' \subkey{t}{L} \yields t\subkey{s\subkey{t}{L}}{K} : \Tiny}
+  \end{mathpar}
 
 \item \textbf{Unit.} To complete the implementation of the adjunction,
   we have an admissible rule representing the unit map. The following
@@ -511,39 +598,44 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
   \begin{mathpar}
     \inferrule*[left=unit,fraction={-{\,-\,}-}]
     {\Gamma, i : \Tiny, \ctxlock{L}, \Gamma' \yields a : A}
-    {\Gamma, \Gamma'\sublock{L}{i} \yields a\sublock{L}{i} : A\sublock{L}{i}}
+    {\Gamma, \Gamma'\sublock{L}{i} \yields a\sublock{L}{i} : A\sublock{L}{i}} \\
+    \inferrule*[left=unit-tele,fraction={-{\,-\,}-}]
+    {\Gamma, i : \Tiny, \ctxlock{L} \yields \Gamma' \tele}
+    {\Gamma \yields \Gamma'\sublock{L}{i} \tele}    
   \end{mathpar}
   Like the $\subkey{t}{L}$ operation, we use substitution-like syntax
   for the unit map because it commutes past everything until it
-  reaches a variable. The silly $\rbind{i}$ notation is used to
+  reaches a variable. The silly $\rbind{i}$ notation is chosen to
   match the syntax for the type former later, sorry!
 
   The lock and key then `click together', yielding an ordinary
   substitution. In the simplest case, when $t : \Tiny$ is closed and
-  $x$ has a single stuck instance of \rulen{counit}:
+  $x$ has a single matching stuck \rulen{counit}.
   \begin{align*}
     x \substuck{t}{L}\sublock{L}{i}
     :\defeq x[t/i]
   \end{align*}
+  So if $x \defeq i$ the result is $t$, and otherwise the substitution
+  yields $x$ again.
 
-  If $x$ has additional stuck keys, the operation needs to continue
-  into these stuck keys. To avoid complications involved in defining
-  an $n$-ary version of the \rulen{counit} admissible rule, we
-  immediately divide into cases on whether the variable is the one
-  being `substituted' for by the \rulen{unit} rule.
+  If $x$ has several stuck counits, the operation needs to continue
+  into the associated terms. To simplify things a little, rather than
+  yielding an actual substitution we can immediately divide into cases
+  on whether the underlying variable is the one being `searched for'
+  by the \rulen{unit} rule.
   \begin{align*}
-    &i \substucke{s_1}{\lockn{K}_1} \dots
-    \substucke{s_{i}}{\lockn{K}_{i}} \substuck{t}{L} \substucke{s_{i+1}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n}{\lockn{K}_n}\sublock{L}{i} \\
+    &i \substucke{j_1}{\lockn{J}_1} \dots
+    \substucke{j_{m}}{\lockn{J}_{m}} \substuck{t}{L} \substucke{k_{1}}{\lockn{K}_{1}}
+    \dots \substucke{k_n}{\lockn{K}_n}\sublock{L}{i} \\
     :\defeq {}
     &t\sublock{L}{i} \\
-    &x \substucke{s_1}{\lockn{K}_1} \dots
-    \substucke{s_{i}}{\lockn{K}_{i}} \substuck{t}{L} \substucke{s_{i+1}}{\lockn{K}_{i+1}},
-    \dots \substucke{s_n}{\lockn{K}_n}\sublock{L}{i} \\
+    &x \substucke{j_1}{\lockn{J}_1} \dots
+    \substucke{j_{m}}{\lockn{J}_{m}} \substuck{t}{L} \substucke{k_{1}}{\lockn{K}_{1}},
+    \dots \substucke{k_n}{\lockn{K}_n}\sublock{L}{i} \\
     :\defeq {}
-    &x\substucke{s_1\sublock{L}{i}}{\lockn{K}_1} \dots
-    \substucke{s_{i}\sublock{L}{i}}{\lockn{K}_{i}} \substucke{s_{i+1}\sublock{L}{i}}{\lockn{K}_{i+1}}
-    \dots \substucke{s_n\sublock{L}{i}}{\lockn{K}_n}
+    &x\substucke{j_1\sublock{L}{i}}{\lockn{J}_1} \dots
+    \substucke{j_{m}\sublock{L}{i}}{\lockn{J}_{m}} \substucke{k_{1}\sublock{L}{i}}{\lockn{K}_{1}}
+    \dots \substucke{k_n\sublock{L}{i}}{\lockn{K}_n}
   \end{align*}
   % \begin{align*}
   %   &x \stubra{\subkeye{s_1}{\lockn{K}_1}, \dots,
@@ -566,29 +658,30 @@ $(-,i:\Tiny) \dashv (-,\lock)$ adjunction.
   %   % \not\defeq \lockn{K}
   % \end{align*}
 
-  Both the lock $\lockn{L}$ and the variable $i$ no longer appear in
-  the resulting term $a\sublock{L}{i}$.
+  In any application of the \rulen{unit} rule, the lock $\lockn{L}$
+  and the variable $i$ no longer appear in the resulting term
+  $a\sublock{L}{i}$.
 \end{itemize}
 
-\begin{remark}
-  To be careful, we should have proper calculus of telescopes
-  $\Gamma \yields \Gamma' \tele$ that $-\subkey{t}{L}$
-  and $-\sublock{L}{i}$ are defined on.
-\end{remark}
+% \begin{remark}
+%   To be careful, we should have proper calculus of telescopes
+%   $\Gamma \yields \Gamma' \tele$ that $-\subkey{t}{L}$
+%   and $-\sublock{L}{i}$ are defined on.
+% \end{remark}
 
-\begin{remark}
-  We do not have weakening by additional locks for arbitrary terms,
-  but we do have a kind of lock weakening for closed terms:
-  \begin{mathpar}
-    \inferrule*[left=closed-lock-wk,fraction={-{\,-\,}-}]
-    {\Gamma \yields \judge}
-    {\ctxlock{L}, \Gamma \yields \judge}
-  \end{mathpar}
-\end{remark}
+% \begin{remark}
+%   We do not have weakening by additional locks for arbitrary terms,
+%   but we do have a kind of lock weakening for closed terms:
+%   \begin{mathpar}
+%     \inferrule*[left=closed-lock-wk,fraction={-{\,-\,}-}]
+%     {\Gamma \yields \judge}
+%     {\ctxlock{L}, \Gamma \yields \judge}
+%   \end{mathpar}
+% \end{remark}
 
 These rules are all peculiar, but if we insist on pushing the
-admissible rules to the leaves they are forced on us by the setting we
-are trying to capture.
+admissible rules to the leaves I believe something like this is forced
+on us by the setting we are trying to capture.
 
 \subsection{Examples of Admissible Rules}
 
@@ -674,9 +767,10 @@ Nothing stops us from iterating this forever:
   &&\yields
      i\substuck{i\substuck{i\substuck{j}{L}}{L}}{L} : \Tiny
 \end{alignat*}
-Semantically, the context corresponds to $i : \Tiny \to \Tiny$ and $j : \Tiny$, and we are
-constructing $i(i(\dots i(j)))$. The lock substitution then replaces
-$i$ with the identity, and so the entire term reduces to $j$.
+Semantically, the context corresponds to $i : \Tiny \to \Tiny$ and
+$j : \Tiny$, and the term is a version of the iterated application
+$i(i(\dots i(j)))$. The lock substitution $\sublock{L}{i}$ then
+replaces $i$ with the identity, and so the entire term reduces to $j$.
 
 \iffalse
 \begin{remark}
@@ -716,7 +810,7 @@ $i$ with the identity, and so the entire term reduces to $j$.
   so let's try and make something interesting happen. Suppose we have
   global elements $1, 2, 3, 4 : \Tiny$, and consider a term
   \begin{align*}
-    x : \Tiny, y : \Tiny, \lockn{L}, \lockn{K}
+    x : \Tiny, y : \Tiny, \ctxlock{L}, \ctxlock{K}
     &\yields
       (x\substuck{1}{L}\substuck{2}{K},y\substuck{3}{L}\substuck{4}{K})
       : \Tiny \times \Tiny
@@ -731,87 +825,153 @@ $i$ with the identity, and so the entire term reduces to $j$.
   \end{align*}
   and
   \begin{align*}
-    & (x\substuck{1}{L}\substuck{2}{K}, y\substuck{3}{L}\substuck{4}{K})[i/x][j/y][\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
+    & (x\substuck{1}{L}\substuck{2}{K}, y\substuck{3}{L}\substuck{4}{K})[j/x][i/y][\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
     & \defeq (j\substuck{1}{L}\substuck{2}{K}, i\substuck{3}{L}\substuck{4}{K})[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
     & \defeq (j\substuck{1}{L}\substuck{2}{K}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}], i\substuck{3}{L}\substuck{4}{K}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}]) \\
     & \defeq (2, 3)
   \end{align*}
   Once we have the type former, we will be able to cause these
   different substitutions to occur. So the \emph{user} of a term
-  containing stuck keys gets to choose which stored term is eventually
-  used, but doesn't get to choose the term that gets plugged in. And
-  the stored terms for the other $\key$s are completely lost!
+  containing stuck keys gets to choose which of the stuck keys is
+  eventually used, but doesn't get to choose the actual term that gets
+  plugged in. And the stored terms for the other keys are
+  completely lost!
 \end{remark}
+
+\subsection{Total Substitutions}
+
+\newcommand{\wksub}[1]{\mathsf{w}(#1)}
+\newcommand{\conjinv}[3]{\mathsf{inv}(#1, \lockn{#2}, #3)}
+\newcommand{\varfunc}[1]{,\uparrow_{#1}}
+\newcommand{\lockfunc}[1]{,\uparrow_{\lockn{#1}}}
+
+Suppose that besides the ordinary substitution rules 
+\begin{mathpar}
+\inferrule*{~}{\Gamma \yields \cdot : \cdot} \and
+\inferrule*{\Gamma \yields \theta : \Delta \and \Gamma \yields a : A[\theta]}{\Gamma \yields (\theta, a/x) : \Delta, x : A} \and
+\inferrule*{\Gamma \yields \theta : \Delta}{\Gamma, x : A \yields \wksub{\theta} : \Delta} \and
+\inferrule*{\Gamma \yields \theta : \Delta \and \Delta \yields \theta' : \Xi}{\Gamma \yields (\theta' \circ \theta) : \Xi} \\
+\inferrule*[fraction={-{\,-\,}-}]{\Gamma \yields \theta : \Delta}{\Gamma, x : A[\theta] \yields (\theta \varfunc{x}) : \Delta, x : A}
+\end{mathpar}
+we also have
+\begin{mathpar}
+\inferrule*{\Gamma, i : \Tiny \yields \theta : \Delta}{\Gamma \yields (\theta, i./\lockn{L}) : \Delta,\ctxlock{L}} \and
+\inferrule*{~}{\Gamma, \ctxlock{L}, i : \Tiny \yields \counit{\Gamma}{L}{i} : \Gamma}
+\end{mathpar}
+From these, we can get functoriality, the unit substitution, and the inverse to the former rule
+\begin{mathpar}
+\inferrule*[fraction={-{\,-\,}-}]{\Gamma \yields \theta : \Delta}{\Gamma,\ctxlock{L} \yields \theta \lockfunc{L} : \Delta,\ctxlock{L}} \and
+\inferrule*[fraction={-{\,-\,}-}]{~}{\Gamma \yields \unit{\Gamma}{i}{L} : \Gamma, i : \Tiny, \ctxlock{L}} \and
+\inferrule*[fraction={-{\,-\,}-}]{\Gamma \yields \theta : \Delta,\ctxlock{L}}{\Gamma, i : \Tiny \yields \conjinv{\theta}{L}{i} : \Delta}
+\end{mathpar}
+defined by
+\begin{align*}
+\theta \lockfunc{L} &:\defeq (\theta \circ \counit{\Gamma}{L}{i}), i./\lockn{L} \\
+\unit{\Gamma}{i}{L} &:\defeq (\id_\Gamma \varfunc{i}),  i./\lockn{L} \\
+\conjinv{\theta}{L}{i} &:\defeq \counit{\Delta}{L}{i} \circ (\theta \varfunc{i})
+\end{align*}
+
+The equations we need to assert are:
+\begin{align*}
+  (\theta, i./\lockn{L}) \circ \theta' &\defeq (\theta \circ (\theta'\varfunc{i})), i./\lockn{L} \\
+  \wksub{\theta, i./\lockn{L}} &\defeq (\theta \circ (\wksub{\id_\Gamma} \varfunc{i})), i./\lockn{L} \\
+                                   % &\defeq (\theta, i./\lockn{L}) \circ \wksub{\id_\Gamma} \\
+  \theta \circ \counit{\Gamma}{L}{i} &\defeq \counit{\Delta}{L}{i} \circ (\theta \lockfunc{L} \varfunc{i}) \\
+  \counit{(\Gamma, j : \Tiny)}{L}{i} \circ (\unit{\Gamma}{i}{L} \varfunc{i}) &\defeq (\wksub{\id_\Gamma}, i/j)
+\end{align*}
+The last equation is one of the triangle identities. This other one:
+\begin{align*}
+  (\counit{\Gamma}{K}{i} \lockfunc{L}) \circ \unit{\Gamma, \ctxlock{K}}{i}{L} &\defeq (\id_\Gamma \circ \counit{\Gamma}{K}{i}), i./\lockn{L}
+\end{align*}
+follows without being asserted separately, by expanding the definition of $-\lockfunc{L}$ and using the first equation.
+
+% Let's expand the left side of the last one:
+% \begin{align*}
+%   (\counit{\Gamma}{K}{i} \lockfunc{L}) \circ \unit{\Gamma, \ctxlock{K}}{i}{L}
+%   &\defeq ((\counit{\Gamma}{K}{i} \circ \counit{(\Gamma,\ctxlock{K},i)}{L}{j}), j./\lockn{L}) \circ \unit{\Gamma, \ctxlock{K}}{i}{L} \\
+%   &\defeq (\counit{\Gamma}{K}{i} \circ \counit{(\Gamma,\ctxlock{K},i)}{L}{j} \circ (\unit{\Gamma, \ctxlock{K}}{i}{L} \varfunc{j})), j./\lockn{L} \\
+% \end{align*}
 
 \section{Type}
 
 The type former is now made right-adjoint to $\ctxlock{L}$ in the
-`obvious' way, following the pattern of \cite{fitchtt}.
-
-\mvrnote{This specific choice of syntax may be where I lose the crowd,
-  but I will try to justify it in a minute.}
+`obvious' way, following the pattern of \cite{fitchtt}. My choice of
+syntax for the term constructors may be where I lose the crowd, but I
+will try to justify it in a minute.
 
 % \begin{mathpar}
-%   \inferrule*[left=$\surd$-form]
+%   \inferrule*[left=$\rformsym$-form]
 %   {\Gamma, \ctxlock{L} \yields A : \univ}
 %   {\Gamma \yields \rform{L} A : \univ} \and
-%   \inferrule*[left=$\surd$-intro]
+%   \inferrule*[left=$\rformsym$-intro]
 %   {\Gamma, \ctxlock{L} \yields a : A}
 %   {\Gamma \yields \rintro{L} a : \rform{L} A} \and
-%   \inferrule*[left=$\surd$-elim]
+%   \inferrule*[left=$\rformsym$-elim]
 %   {\Gamma, i : \Tiny \yields r : \rform{L} A}
 %   {\Gamma \yields \relim{i.r} : A\sublock{L}{i}} \\
 %   \relim{i.\rintro{L} a} \defeq a\sublock{L}{i} \and
 %   r \defeq \rintro{L}{\relim{i. r\subkey{i}{L}}}
 % \end{mathpar}
 \begin{mathpar}
-  \inferrule*[left=$\surd$-form]
+  \inferrule*[left=$\rformsym$-form]
   {\Gamma, \ctxlock{L} \yields A : \univ}
   {\Gamma \yields \rform{L} A : \univ} \and
-  \inferrule*[left=$\surd$-intro]
+  \inferrule*[left=$\rformsym$-intro]
   {\Gamma, \ctxlock{L} \yields a : A}
   {\Gamma \yields \rintro{L} a : \rform{L} A} \and
-  \inferrule*[left=$\surd$-elim]
+  \inferrule*[left=$\rformsym$-elim]
   {\Gamma, i : \Tiny \yields r : \rform{L} A}
   {\Gamma \yields r(\rbind{i}) : A\sublock{L}{i}} \\
   (\rintro{L}{a})(\rbind{i}) \defeq a\sublock{L}{i} \and
   r \defeq \rintro{L}{(r\subkey{i}{L}(\rbind{i}))}
 \end{mathpar}
 
+In words:
 \begin{itemize}
-\item \rulen{$\surd$-form}/\rulen{$\surd$-intro}: For any
+\item \rulen{$\rformsym$-form} and \rulen{$\rformsym$-intro}: For any
   `$\ctxlock{L}$-locked' term $a : A$, we can amazingly bind the lock
-  $\lockn{L}$ and form a term $\rintro{L} a : \rform{L} A$. The syntax
-  is intended to be similar to that of an ordinary $\lambda$-binding.
+  $\ctxlock{L}$ and form a term $\rintro{L} a : \rform{L} A$. The syntax
+  is intended to be reminiscent of an ordinary $\lambda$-binding.
 
-  Reading upwards, going under $\rform{L} - $ means that all extant
-  variables get locked by $\ctxlock{L}$, so every future use of those
-  variables in $a$ must have an attached $-\subkey{t}{L}$.
+  Reading upwards, going under $\rform{L} - $ or $\rintro{L} -$ means
+  that all extant variables get locked by $\ctxlock{L}$, so every
+  future use of those variables in $a$ must have an attached
+  $-\substuck{t}{L}$ to be well formed.
 
   If $A$ is a closed type, we will just write $\rformu A$ rather than
-  binding a lock name that doesn't get used.
-\item \rulen{$\surd$-elim}: If given an assumption $i : \Tiny$ we can
+  binding an unused lock name.
+  
+\item \rulen{$\rformsym$-elim}: If using an assumption $i : \Tiny$ we can
   produce a term $r : \rform{L} A$, then we can amazingly apply $r$ to
   the fresh $i$ to form $r(\rbind{i}) : A$. We are free to completely
-  ignore the new assumption $i$, just as a constant function ignores
-  its argument.
+  ignore the new assumption $i$ in $r$ if we wish, just as a constant
+  function may ignore its argument.
 
   The syntax is a bit insane: to keep the analogy with ordinary
   function application, the variable $i$ is bound in the parentheses
-  on the right, but then is \emph{in scope in the body of the function}.
-\item \rulen{$\surd$-beta}: Amazingly binding a lock $\rintro{L} a$
+  on the right, but then is \emph{in scope in the body of the function
+    to the left}\footnote{If we took Lawvere
+  seriously~\cite{lawvere:adjointness-foundations} and wrote function
+  application as $xf$, then we would not have this problem!}.
+  
+\item \rulen{$\rformsym$-beta}: Amazingly binding a lock $\rintro{L} a$
   and then amazingly applying it to $\rbind{i}$ reduces to
-  $a\sublock{L}{i}$, in complete analogy with
+  $a\sublock{L}{i}$, in perfect analogy with
   $(\lambda x. b)(a) \defeq b[a/x]$.
-\item \rulen{$\surd$-eta}:
+  
+\item \rulen{$\rformsym$-eta}: Any element $r : \rform{L} A$ is equal to
+  one where you immediately bind a lock and apply $r$ to it, in
+  analogy with $f \defeq (\lambda x. f(x))$.
 \end{itemize}
 
-\subsection{Basic Properties}
+\subsection{Basic Examples}
 
-First, two basic maps that are easily definable from the rules.
+First, some maps that are easily definable from the rules. The functor
+$\Tiny \to -$ is a monad, and its right adjoint $\rformu{}$
+is therefore a comonad.
 
 \begin{definition}
-  If $A$ is a (for now) closed type, define
+  If $A$ is (for now) a closed type, define a counit map
   $\varepsilon_A : \rformu{A} \to A$ by
   \begin{align*}
     \varepsilon_A &: \rformu{A} \to A \\
@@ -819,8 +979,8 @@ First, two basic maps that are easily definable from the rules.
   \end{align*}
   To get a term of $A$, we need a term of $\rformu{A}$ that we can
   amazingly evaluate on an additional assumption $i : \Tiny$. But we
-  have the variable $r : \rformu{A}$ already, so we have no need to
-  use the additional assumption.
+  already have the variable $r : \rformu{A}$, so we have no
+  need to use the additional assumption.
 \end{definition}
 
 \begin{definition}
@@ -832,24 +992,24 @@ First, two basic maps that are easily definable from the rules.
   \end{align*}
 \end{definition}
 
-Compare this with the definition of ordinary function composition, as
-the shape of the definition is very similar:
+This should be compared with the definition of function composition,
+as the shape of the definition is the same:
 \begin{align*}
   f \circ - &: (C \to A) \to (C \to B) \\
   (f \circ -)(r) &:\defeq \lambda c. f(r(c))
 \end{align*}
 
 In words, we start with $r : \rform{L} A$. To produce a term of
-$\rform{K} B$ we have to produce a `$\lockn{K}$-locked' term of
-$B$. There is a function $f : A \to B$ available, so we just have to
-get a $\lockn{K}$-locked term of $A$. We cannot amazingly evaluate
-$r : \rform{L} A$ on its own because it became trapped behind
+$\rform{K} B$ we have to produce a `$\lockn{K}$-locked' term of $B$.
+There is a function $f : A \to B$ available, so we just have to get a
+$\lockn{K}$-locked term of $A$. We cannot amazingly evaluate
+$r : \rform{L} A$ on its own because it has become trapped behind
 $\ctxlock{K}$. But we \emph{can} amazingly evaluate $r\substuck{i}{K}$
-on an additional assumption $i : \Tiny$. This gets us a
+given an additional assumption $i : \Tiny$. This gets us a
 $\lockn{K}$-locked term of $A$ which we can apply $f$ to, giving the
 $\lockn{K}$-locked term of $B$ that we wanted. This time, the access
 to the additional term $i : \Tiny$ was crucial: it is exactly what we
-needed to access $r$ via $r\substuck{i}{K} : \rform{L}{A}$.
+needed to get access $r$ via $r\substuck{i}{K} : \rform{L}{A}$.
 
 If $f$ is not closed then this is not well-typed, because $f$ as a
 variable also became locked behind $\ctxlock{L}$. But if \emph{all}
@@ -867,79 +1027,75 @@ full generality:
 \end{definition}
 
 This simple example is already very noisy, so to cut down on the
-symbols let us fix a couple of pieces of notation.
+symbols we will introduce a couple of pieces of syntactic sugar.
+
+\subsection{Sugar}
 
 Like ordinary \rulen{$\to$-intro}, and as with any negative type
-former, the \rulen{$\surd$-intro} rule is right-invertible and so we
-may define terms of it via copattern matching~\cite{???}. For example,
-we will write
+former, the \rulen{$\rformsym$-intro} rule is right-invertible and so we
+will define terms of it via copattern matching~\cite{???}. For
+example, we will write
 \begin{align*}
   r(\ctxlock{L}, \ctxlock{K}) :\defeq \judge
   \quad \text{to mean} \quad
   r :\defeq \rintro{L}{\rintro{K}{\judge}}
 \end{align*}
-This combines nicely with ordinary copattern-style definitions of
-functions. We write
+This integrates nicely with ordinary copattern-style definitions of
+functions: we write
 \begin{align*}
   f(x,y,\ctxlock{L},z) :\defeq \judge
   \quad \text{to mean} \quad
   f :\defeq \lambda x. \lambda y. \rintro{L}{\lambda z. \judge}
 \end{align*}
-This syntax makes it easy to see at a glance which locks each variable
-is locked by in the term $\judge$: the $x$ and $y$ here are to the
-left of $\ctxlock{L}$ in the list of arguments and so are locked by
+This syntax makes it easy to see at a glance which locks affect each
+variable in the term $\judge$: the $x$ and $y$ here are to the left of
+$\ctxlock{L}$ in the list of arguments and so are locked by
 $\ctxlock{L}$, whereas $z$ is not locked by anything.
 
-Eliminating a term of $\rformu{A}$ described this style is a little
-peculiar.  To `apply' a lock we bind a new variable $i$ as in
-$\surd$-elimination, but this variable is now in scope \emph{to the
-  left} of the that lock in the argument list\footnote{Of course if we
-  took Lawvere seriously~\cite{lawvere:adjointness-foundations} and
-  wrote function application as $xf$, then we would not have this
-  issue!}. We write
+Similarly, we might evaluate some combination of $\to$ and $\rformsym$
+by applying it to a tuple of arguments, as in $f(a, b, \rbind{i}, c)$.
+The `argument' to a lock is a new bound variable $i$ as in
+\rulen{$\rformsym$-elim}, but remember that this variable is now in
+scope \emph{to the left} of that argument in the tuple. These compute
+in the `obvious' way, with a $\beta$-reduction for each entry in the
+list of arguments. If $f$ is defined via the pattern match above, we
+find
 \begin{align*}
+  f(x,y,\ctxlock{L},z)
+  :&\defeq \judge \\
   f(a(i), b(i), \rbind{i}, c)
-  \quad \text{to mean} \quad
-  \left(\relim{i. f(a(i), b(i))}\right)(c)
-\end{align*}
-These compute in the `obvious' way, with a $\beta$-reduction for each
-entry in the list of arguments. If $f$ is defined via the pattern
-match above, we find
-\begin{align*}
-  f(a(i), b(i), \rbind{i}, c)
-  &\defeq \left(\relim{i. f(a(i), b(i))}\right)(c) \\
-  &\defeq \left(\relim{i. \left( \lambda x. \lambda y. \rintro{L}{\lambda z. \judge} \right)(a(i), b(i))}\right)(c) \\
-  &\defeq \left(\relim{i. \rintro{L}{\lambda z. \judge}[a(i)/x][b(i)/y]}\right)(c) \\
-  &\defeq \left(\lambda z. \judge[a(i)/x][b(i)/y]\sublock{L}{i}\right)(c) \\
+   &\defeq f(a(i))(b(i))(\rbind{i})(c) \\
+   &\defeq \left( \lambda x. \lambda y. \rintro{L}{\lambda z. \judge} \right)(a(i))(b(i))(\rbind{i})(c) \\
+   &\defeq \left( \lambda x. \lambda y. \rintro{L}{\lambda z. \judge} \right)(a(i))(b(i))(\rbind{i})(c) \\
+   &\defeq  \left( \rintro{L}{\lambda z. \judge[a(i)/x][b(i)/y]} \right)(\rbind{i})(c) \\
+   &\defeq  \left( \lambda z. \judge[a(i)/x][b(i)/y]\sublock{L}{i} \right)(c) \\
   &\defeq \judge[a(i)/x][b(i)/y]\sublock{L}{i}[c/z]
 \end{align*}
-We have arranged the syntax of our admissible rules precisely so that
-the function definition and use site click together: comparing
+We have arranged the syntax of our admissible rules so that function
+definition and use click together: comparing
 $f(a(i), b(i), \rbind{i}, c)$ and $f(x,y,\ctxlock{L},z)$, the first
 arguments become substitutions $[a(i)/x][b(i)/y]$ and the $\rbind{i}$
 `argument' becomes a `substitution' $\sublock{L}{i}$.
-
-\mvrnote{Mention here that $f$ can use $i$ in its definition}
 
 Any ordinary function is tautologically equal to the `definition'
 \begin{align*}
   f(x) :\defeq f(x)
 \end{align*}
-by $\eta$-expansion. For $\surd$, this $\eta$-expansion introduces an
-instance of key substitution. That is, for any $f : \rform{L}{A}$,
+by $\eta$-expansion. For $\rformsym$, this $\eta$-expansion introduces an
+instance of the counit. That is, any term $r : \rform{L}{A}$ is equal to the `definition'
 \begin{align*}
-  r(\ctxlock{L}) :\defeq (r\substuck{i}{L})(\rbind{i})
+  r(\ctxlock{L}) :\defeq r\substuck{i}{L}(\rbind{i})
 \end{align*}
 
-
-For the second piece of syntactic sugar, we will often need to extract terms of $A$ from assumptions
-$r : \rformu{A}$, using the counit $\varepsilon_A$ defined above. When
-such assumptions are behind many context locks, the
-\rulen{$\surd$-elim} rule provides a term $i : \Tiny$ that can be used
-to unlock all these context locks at once, giving us access to $A$
-regardless of where $r$ lies in the context.
+For the second piece of syntactic sugar, we will often need to extract
+terms of $A$ from assumptions $r : \rformu{A}$ using the counit map
+$\varepsilon_A$ defined above. When such assumptions are behind many
+context locks, the \rulen{$\rformsym$-elim} rule provides a term
+$i : \Tiny$ that can be used to unlock all these context locks at
+once, giving us access to $A$ regardless of where $r$ lies in the
+context.
 \begin{definition}
-  If $x : \rform{L} A$ is behind several locks
+  If a variable $x : \rform{L} A$ is behind several locks
   $\ctxlocke{\lockn{K}_1} \dots \ctxlocke{\lockn{K}_n}$, then let
   \begin{align*}
     \rget{x} :\defeq (x \substucke{i}{\lockn{K}_1}
@@ -949,55 +1105,44 @@ regardless of where $r$ lies in the context.
   in particular, if $x : \rform{L} A$ is behind no locks in the
   context then $\rget{x} :\defeq \varepsilon_A(x)$.
 \end{definition}
-(This notation cannot be internalised as a function, it is just an
-admissible piece of syntax.)  This allows a different perspective on
-$\eta$-expansion for $\rformsym$: for any term $r : \rformu A$, there
-is a judgemental equality $r \defeq \rintro{L}{\rget{r}}$.
+This notation $\rget{x}$ is intended to evoke the elimination rule
+$x_\sharp$ used in cohesive HoTT (and similar). It cannot be
+internalised as a function, it is just an admissible piece of syntax.
 
-Using these shorthand, the definition of functoriality is much clearer:
-For $A,B : \rformu \univ$ and
+Using these shorthands, the definition of functoriality is much less
+noisy: For $A,B : \rformu \univ$ and
 $f : \rform{L}\left(\rget{A} \to \rget{B}\right)$ we have
-\begin{alignat*}{2}
-  &\rformu f &&: \rform{L}\rget{A} \to \rform{L}\rget{B} \\
-  &\rformu f(r, \ctxlock{L}) &&:\defeq \rget{f}(\rget{r})
-\end{alignat*}
-or
 \begin{align*}
-  \rformu f(r, \ctxlock{L}) &:\defeq (f\substuck{i}{L})(\rbind{i}, (r\substuck{j}{L})(\rbind{j}))
+  &\rformu f : \rform{L}\rget{A} \to \rform{L}\rget{B} \\
+  &\rformu f(r, \ctxlock{L}) :\defeq \rget{f}(\rget{r})
 \end{align*}
+
+\subsection{Adjointness}\label{sec:adjointness}
 
 Now let's look at how $\rformu$ relates to $(\Tiny \to -)$
 \begin{definition}
-  If $A : \univ$ is a (for now) closed type, there are maps
+  If $A, B : \univ$ are (for now) closed types, there are maps
   \begin{align*}
     \eta_A &: A \to \rformu(\Tiny \to A) \\
-    \varepsilon_A &: (\Tiny \to \rformu A) \to A
+    \varepsilon_B &: (\Tiny \to \rformu B) \to B
   \end{align*}
   given by
-  % \begin{align*}
-  %   \eta_A(a) &:\defeq \rintro{L}{\lambda t. \varkey{L}{t} a} \\
-  %   \varepsilon_A(f) &:\defeq \relim{i.f(i)}
-  % \end{align*}
   \begin{align*}
     \eta_A(a, \ctxlock{L}, t) &:\defeq a \substuck{t}{L} \\
-    \varepsilon_A(f) &:\defeq f(i, \rbind{i})
+    \varepsilon_B(f) &:\defeq f(i, \rbind{i})
   \end{align*}
-  Allowing dependency, for \emph{any} $A : \univ$, there is a map
+  Allowing the maximum amount of dependency, for \emph{any} $A : \univ$, there is a map
   \begin{align*}
     \eta_A &: A \to \rform{L}(\prd{t : \Tiny} A \substuck{t}{L})
   \end{align*}
   and for \emph{any} $B : \Tiny \to \rformu \univ$ a map
   \begin{align*}
-    \varepsilon_B &: \left(\prd{t:\Tiny} \rform{K} \relim{j.(B
-                    \substuck{j}{K})(t\substuck{j}{K})}\right) \to \relim{j.B(j)}
-  \end{align*}
-  or
-  \begin{align*}
-    \varepsilon_B &: \left(\prd{t:\Tiny} \rform{K} (B \substuck{j}{K})(t\substuck{j}{K}, \rbind{j})\right) \to B(j, \rbind{j})
+    \varepsilon_B &: \left(\prd{t:\Tiny} \rform{K} B \substuck{j}{K}(t\substuck{j}{K}, \rbind{j})\right) \to B(j, \rbind{j})
   \end{align*}
   with the same definitions as in the closed case.
 \end{definition}
 
+\iffalse
 Let us typecheck $\varepsilon_B(f) :\defeq f(i, \rbind{i})$ against
 that latter expression. The term $f(i)$ has type
 $\rform{K} \relim{j.(B \substuck{j}{K})(i \substuck{j}{K})}$, and so
@@ -1017,10 +1162,11 @@ or
   &(B [j/i])(i [j/i], \rbind{j}) \\
   &B(j, \rbind{j})
 \end{align*}
+\fi
 
-Besides $\varepsilon_A$ not being definable for arbitrary $A$, we have
+Besides $\varepsilon_B$ not being definable for arbitrary $B$, we have
 also seen that $\rformu -$ is not internally functorial. So to what
-extent do we actually get the adjointness $-^{\Tiny} \dashv \rformu -$?
+extent do we actually get the adjointness $(\Tiny \to -) \dashv \rformu -$?
 \begin{proposition}
   If $A$ and $B$ are closed types then there is an equivalence
   \begin{align*}
@@ -1036,17 +1182,16 @@ extent do we actually get the adjointness $-^{\Tiny} \dashv \rformu -$?
   %   \hat g(a, \ctxlock{L}) &:\defeq \rget{g}(\lambda j.\varkey{L}{j} a) \\
   %   \hat f(\ctxlock{K}, h) &:\defeq \relim{i.(\varkey{K}{i} f)(h(i))}
   % \end{alignat*}
-
   \begin{alignat*}{2}
-    (\Phi g)(a, \ctxlock{L})
-    &:\defeq (g\substuck{i}{L})(\rbind{i}, \lambda j. a \substuck{j}{L}) \\
-    (\Phi^{-1} f)(\ctxlock{K}, h)
-    &:\defeq (f\substuck{k}{K})(h(k), \rbind{k})
+    \Phi(g, a, \ctxlock{L})
+    &:\defeq g\substuck{i}{L}(\rbind{i}, \lambda j. a \substuck{j}{L}) \\
+    \Phi^{-1}(f, \ctxlock{K}, h)
+    &:\defeq f\substuck{k}{K}(h(k), \rbind{k})
   \end{alignat*}
-  \mvrnote{The $i.$ binding extends all the way into the function being evaluated!}
 \end{proposition}
 \begin{proof}
-  Crunching through the composite:
+  Starting with $\Phi^{-1}(\Phi(g))$ fully $\eta$-expanded, we can
+  crunch through the composite:
   % \begin{align*}
   %   (\Phi^{-1} (\Phi g))(\ctxlock{K}, h)
   %   &\defeq ((\Phi g) \subkey{k}{K})(h(k), \rbindsym k.) \\
@@ -1065,47 +1210,45 @@ extent do we actually get the adjointness $-^{\Tiny} \dashv \rformu -$?
   %   &\defeq (g\substuck{i}{L})(\rbind{i}, h)
   % \end{align*}
   \begin{align*}
-    &(\Phi^{-1} (\Phi g))(\ctxlock{K}, h) \\
-    &\defeq ((\Phi g) \subkey{k}{K})(h(k), \rbind{k})
+    &\Phi^{-1}(\Phi(g\substuck{k}{K}), \rbind{k}, h) \\
+    &\defeq \Phi(g\substuck{k}{K}, h(k), \rbind{k})
     && \text{(Definition of $\Phi^{-1}$)} \\
-    &\defeq (\Phi (g\substuck{k}{K}))(h(k), \rbind{k})
-    && \text{($\Phi$ is closed)} \\
-    &\defeq \left( (g\substuck{k}{K}\subkey{i}{L})(\rbind{i}, \lambda j. a \substuck{j}{L}) \right)[h(k)/a]\sublock{L}{k}
+    &\defeq \left( (g\substuck{k}{K}\substuck{i}{L})(\rbind{i}, \lambda j. a \substuck{j}{L}) \right)[h(k)/a]\sublock{L}{k}
     && \text{(Definition of $\Phi$)} \\
-    &\defeq \left( (g\substuck{k}{K}\subkey{i}{L})(\rbind{i}, \lambda j. (h(k)) \substuck{j}{L}) \right)\sublock{L}{k}
-    && \text{(Performing $[h(k)/a]$)} \\
-    &\defeq (g\substuck{k}{K}\subkey{i}{L}\sublock{L}{k})(\rbind{i}, \lambda j. (h(k)) \substuck{j}{L}\sublock{L}{k})
+    &\defeq \left( (g\substuck{k}{K}\substuck{i}{L})(\rbind{i}, \lambda j. (h(k)) \substuck{j}{L}) \right)\sublock{L}{k}
+    && \text{(Computing $[h(k)/a]$)} \\
+    &\defeq (g\substuck{k}{K}\substuck{i}{L}\sublock{L}{k})(\rbind{i}, \lambda j. (h(k)) \substuck{j}{L}\sublock{L}{k})
     && \text{(Commuting $\sublock{L}{k}$ with application)} \\
     &\defeq (g\substuck{k}{K}[i/k])(\rbind{i}, \lambda j. (h(k)) [j/k])
-    && \text{(Computing $\subkey{-}{L}\sublock{L}{k}$)} \\
+    && \text{(Computing $\substuck{-}{L}\sublock{L}{k}$)} \\
     &\defeq (g\substuck{i}{K})(\rbind{i}, \lambda j. h(j))
-    && \text{(Substitution)} \\
+    && \text{(Computing $[j/k]$)} \\
     &\defeq (g\substuck{i}{K})(\rbind{i}, h)
-    && \text{($\eta$ for functions)}
+    && \text{($\eta$ for functions)} \\
+    &\defeq g
+    && \text{($\eta$ for $\rformsym$)}
   \end{align*}
-  and this is precisely the $\eta$-expansion of $g$.
 
   The other way:
   \begin{align*}
-    &(\Phi (\Phi^{-1} f))(a, \ctxlock{L}) \\
-    &\defeq ((\Phi^{-1} f)\substuck{i}{L})(\rbind{i}, \lambda j. a \substuck{j}{L})
+    &\Phi (\Phi^{-1}(f\substuck{i}{L}, a, \rbind{i})) \\
+    &\defeq \Phi^{-1}(f\substuck{i}{L}, \rbind{i}, \lambda j. a \substuck{j}{L})
     && \text{(Definition of $\Phi$)} \\
-    &\defeq (\Phi^{-1} f\substuck{i}{L})(\rbind{i}, \lambda j. a \substuck{j}{L})
-    && \text{($\Phi^{-1}$ is closed)} \\
-    &\defeq (f\substuck{i}{L}\subkey{k}{K})(h(k), \rbind{k})\sublock{K}{i}[\lambda j. a \substuck{j}{L}/h]
+    &\defeq (f\substuck{i}{L}\substuck{k}{K})(h(k), \rbind{k})\sublock{K}{i}[\lambda j. a \substuck{j}{L}/h]
     && \text{(Definition of $\Phi^{-1}$)} \\
-    &\defeq (f\substuck{i}{L}\subkey{k}{K}\sublock{K}{i})(h(k), \rbind{k})[\lambda j. a \substuck{j}{L}/h]
+    &\defeq (f\substuck{i}{L}\substuck{k}{K}\sublock{K}{i})(h(k), \rbind{k})[\lambda j. a \substuck{j}{L}/h]
     && \text{(Commuting $\sublock{K}{i}$)} \\
     &\defeq (f\substuck{i}{L}[k/i])(h(k), \rbind{k})[\lambda j. a \substuck{j}{L}/h]
-    && \text{(Computing $\subkey{k}{K}\sublock{K}{i}$)} \\
+    && \text{(Computing $\substuck{k}{K}\sublock{K}{i}$)} \\
     &\defeq (f\substuck{k}{L})(h(k), \rbind{k})[\lambda j. a \substuck{j}{L}/h]
-    && \text{(Performing $[k/i]$)} \\
+    && \text{(Computing $[k/i]$)} \\
     &\defeq (f\substuck{k}{L})((\lambda j. a \substuck{j}{L})(k), \rbind{k})
-    && \text{(Performing $[\lambda j. a \substuck{j}{L}/h]$)} \\
+    && \text{(Computing $[\lambda j. a \substuck{j}{L}/h]$)} \\
     &\defeq (f\substuck{k}{L})(a \substuck{k}{L}, \rbind{k})
-    && \text{($\beta$ for functions)}
+    && \text{($\beta$ for functions)} \\
+    &\defeq f
+    && \text{($\eta$ for $\rformsym$)}
   \end{align*}
-  which, again, is the $\eta$-expansion of $f$.
 
   \iffalse
   Crunching through both directions:
@@ -1149,11 +1292,11 @@ Happily, we can allow $A$ and $B$ to be dependent types:
 \begin{proposition}\label{prop:adj}
   For any $A : \univ$ and $B : \rformu \univ$, there is an equivalence
   \begin{align*}
-    \rform{L} ((\prd{t:\Tiny} A\substuck{t}{L}) \to \rget{B}) \equiv (A \to \rform{L} \rget{B})
+    \rform{L} ((\prd{t:\Tiny} A\substuck{t}{L}) \to \rget{B}) \to (A \to \rform{L} \rget{B})
   \end{align*}
   with maps defined the same way as above.
 \end{proposition}
-And in fact, we can also let $B$ depend on $A$:
+And in fact, we can also let $B$ depend on $A$. In maximum generality,
 \begin{proposition}\label{prop:dep-adj}
   For any $A : \univ$ and $B : A \to \rformu \univ$, there is an
   equivalence
@@ -1161,11 +1304,11 @@ And in fact, we can also let $B$ depend on $A$:
   %   \left(\prd{a:A} \rform{L} \rget{B(a)}\right) \equiv \rform{L} \left(\prd{f:\prd{t:\Tiny} A\substuck{t}{L}} \relim{i.(B\substuck{i}{L})(f(i))}\right)
   % \end{align*}
   \begin{align*}
-    \rform{L} \left(\prd{f:\prd{t:\Tiny} A\substuck{t}{L}} B\substuck{i}{L}(f(i), \rbind{i})\right) \equiv \prd{a:A} \rform{L} \rget{B(a)}
+    \rform{L} \left(\prd{f:\prd{t:\Tiny} A\substuck{t}{L}} B\substuck{i}{L}(f(i), \rbind{i})\right) \to \prd{a:A} \rform{L} \rget{B(a)}
   \end{align*}
-  with maps defined the same way as above. \mvrnote{The notation here
-    is so heavy that it's hard to see the original adjunction
-    underneath it...}
+  with maps defined the same way as above. \mvrnote{I admit that the
+    notation here is so heavy that it's hard to see the original
+    adjunction underneath it...}
 \end{proposition}
 
 % But we are actually running into the weak variable rule issue
@@ -1293,9 +1436,10 @@ above adjunction, but the maps are easy to define directly:
 $\rformu$ is not typically idempotent, unless $\Tiny$ is a proposition
 so that $\Tiny \to \Tiny \times \Tiny$ is an equivalence.
 \fi
-\subsection{Limits and Colimits}
 
-We can show that, as a right adjoint, $\rform{}$ preserves pullbacks.
+\subsection{Left Exactness}
+
+We can show that, as a right adjoint, $\rform{}$ preserves $1$ and pullbacks.
 \begin{proposition}[$\rformsym$ preserves 1]
   $\rformu{1} \equiv 1$
 \end{proposition}
@@ -1320,7 +1464,7 @@ We can show that, as a right adjoint, $\rform{}$ preserves pullbacks.
   Define maps either way by
   \begin{align*}
     r &\mapsto (\rintro{L}{\proj_1 \rget{r}}, \rintro{K}{\proj_2\rget{r}}) \\
-    (s,t) &\mapsto \rintro{L}{\rget{s},\rget{t}}
+    (s,t) &\mapsto \rintro{L}(\rget{s}, \rget{t})
   \end{align*}
 \end{proof}
 
@@ -1347,8 +1491,7 @@ We can show that, as a right adjoint, $\rform{}$ preserves pullbacks.
   \begin{align*}
     \rformu{\left(\sm{x : \rget{A}} \rget{r} = x \right)}
   \end{align*}
-  and the interior is a contractible pair. \mvrnote{Wait, do we need
-    to check that $\rformsym$ preserves contractible types/equivalences?}
+  and the interior is a contractible pair.
 \end{proof}
 This might look more familiar with the left side $\eta$-expanded:
 \begin{corollary}[$\rformsym$ preserves $=$]
@@ -1400,10 +1543,10 @@ that the dependent product functor
 \begin{align*}
   \Pi_\Tiny : \mathcal{E}/\Tiny \to \mathcal{E}
 \end{align*}
-has a right adjoint $\nabla_\Tiny$. This operation was given the name \emph{transpension} in~\cite{dependable-atomicity, transpension}
+has a right adjoint $\nabla_\Tiny$. This operation was given the name \emph{transpension} in~\cite{dependable-atomicity, transpension}.
 
 If $\Tiny$ is tiny in the ordinary
-sense, then in a 1-topos this adjoint can be defined by the
+sense, then in a 1-topos this adjoint $\nabla_\Tiny$ can be defined by the
 pullback
 \[
   \begin{tikzcd}
@@ -1413,12 +1556,12 @@ pullback
 \]
 where $B_\bot$ is the partial map classifier for $B$ and
 $\mathrm{supp} : B_\bot \to \Omega$ is the canonical subobject
-$B \rightarrowtail B_\bot$. These are defined by the dependent product
-$\mathrm{true}^*(B \to 1)$ of the terminal map $B \to 1$ along
+$B \rightarrowtail B_\bot$. By definition $\mathrm{supp}$ is the
+dependent product of the terminal map $B \to 1$ along
 $\mathrm{true} : 1 \to \Omega$.
 
-This construction doesn't do the right thing in HoTT, but we have
-something similar: for $B : \rformu \univ$, define a type family
+This construction doesn't do the right thing in HoTT, but something
+similar works: for $B : \rformu \univ$, define a type family
 $\rdepform{-}{B} : \Tiny \to \univ$ by the pullback
 \[
   \begin{tikzcd}
@@ -1427,44 +1570,62 @@ $\rdepform{-}{B} : \Tiny \to \univ$ by the pullback
   \end{tikzcd}
 \]
 where the map along the bottom is the transpose of
-$(\lambda f. f = \id_\Tiny) : (\Tiny \to \Tiny) \to \univ$. By
-function extensionality, this map is equal to
-\begin{align*}
-  t \mapsto \rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}
-\end{align*}
+$(\lambda f. f = \id_\Tiny) : (\Tiny \to \Tiny) \to \univ$.
 
-Because $\rformu$ commutes with $\Sigma$, the map on the right is
-equivalent to
+We can simplify this description a fair amount. Because $\rformu$ commutes with $\Sigma$, the map on the right is
+equivalent to the projection
 \begin{align*}
   \proj_1 : \sm{X : \rformu \univ} \rform{K}{(\rget{X} \to \rget{B})} \to \rformu \univ
 \end{align*}
 The fibre of the pullback over a fixed $t : \Tiny$ is then easy to
-calculate: it is the fibre of that $\proj_1$ over
-$\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}$.
+calculate: it is the fibre of that $\proj_1$ over the value of the bottom map at $t$, namely $\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}$. We can calculate it by plugging that type in for $X$ and simplifying:
 \begin{align*}
-  &\rform{L}{(\rget{X} \to \rget{B})}[\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}/X] \\
-  &\rform{L}{(X\substuck{l}{L}(\rbind{l}) \to \rget{B})}[\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}/X] \\
-  &\rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s} \right)\subkey{l}{L}(\rbind{l}) \to \rget{B} \right)} \\
-  &\rform{L}{\left( \rintro{K}{\prd{s : \Tiny} t\substuck{l}{L}\substuck{s}{K} = s}(\rbind{l}) \to \rget{B} \right)} \\
-  &\rform{L}{\left( (\prd{s : \Tiny} t\substuck{l}{L}\substuck{s}{K} = s)\sublock{K}{l} \to \rget{B} \right)} \\
-  &\rform{L}{\left( (\prd{s : \Tiny} t\substuck{s}{L} = s) \to \rget{B} \right)}
+  &\rform{L}{(\rget{X} \to \rget{B})}[(\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s})/X] \\
+  &\defeq \rform{L}{(X\substuck{l}{L}(\rbind{l}) \to \rget{B})}[\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}/X] \\
+  &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s} \right)\subkey{l}{L}(\rbind{l}) \to \rget{B} \right)} \\
+  &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\substuck{l}{L}\substuck{s}{K} = s}\right)(\rbind{l}) \to \rget{B} \right)} \\
+  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l}{L}\substuck{s}{K} = s)\sublock{K}{l} \to \rget{B} \right)} \\
+  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l}{L}\substuck{s}{K}\sublock{K}{l} = s) \to \rget{B} \right)} \\
+  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l}{L}[s/l] = s) \to \rget{B} \right)} \\  
+  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{s}{L} = s) \to \rget{B} \right)}
 \end{align*}
 and so we take this as our definition.
 \begin{definition}
-  For $B : \rformu \univ$ and $t : \Tiny$, let
+  For $B : \rformu \univ$, define the \emph{transpension} $B^{1/-} : \Tiny \to \univ$ to be
   \begin{align*}
     \rdepform{t}{B} :\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{s}{L} = s) \to \rget{B} \right)}
   \end{align*}
 \end{definition}
+\mvrnote{This looks really close to something we can apply dependent adjointness to directly, but I don't think there's a way to rewrite $t\substuck{s}{L} = s$ in the form $?\subkey{s}{L}$}
 
-The whole point of this construction was:
+The whole point of this construction was to be a right adjoint to the dependent product with $\Tiny$, and indeed it is:
 \begin{proposition}
   For $A : \Tiny \to \univ$ and $B : \rformu \univ$
   \begin{align*}
-    \left(\prd{t : \Tiny} A(t) \to \rdepform{t}{B} \right) \equiv \rform{L} \left( \left(\prd{s : \Tiny} A\substuck{s}{L}(s)\right) \to \rget{B} \right)
+    \rform{L} \left( \left(\prd{s : \Tiny} A\substuck{s}{L}(s)\right) \to \rget{B} \right) \equiv \left(\prd{t : \Tiny} A(t) \to \rdepform{t}{B} \right)
   \end{align*}
 \end{proposition}
 \begin{proof}
+  To apply dependent adjointness (Proposition~\ref{prop:dep-adj}) we
+  need to massage the interior of the $\rform{L}$ a little. Let $P$
+  denote the type family
+  \begin{align*}
+    &P : \left(\sm{t : \Tiny} A(t)\right) \to \rformu{\univ} \\
+    &P(t, a, \ctxlock{K}) :\defeq (\prd{s:\Tiny} t\substuck{s}{K} t = s) \to \rget{B}
+  \end{align*}
+  Then
+  \begin{align*}
+    &\rform{L} \left(\left(\prd{s:\Tiny} (A\substuck{s}{L})(s)\right) \to \rget{B} \right) \\
+    &\equiv \rform{L} \left(\left(\prd{s:\Tiny}\sm{t : \Tiny} {a : A\substuck{s}{L}(t)} (t = s) \right)\to \rget{B} \right) && \text{(Contractible pair)} \\
+    &\equiv \rform{L} \left(\prd{f:\prd{t':\Tiny} \sm{t : \Tiny} A\substuck{t'}{L}(t)} \left(\prd{s:\Tiny} \proj_1(f(i)) = s\right) \to \rget{B} \right)  && \text{(Univ. property of $\Sigma$)} \\
+    &\defeq \rform{L} \left(\prd{f:\prd{t':\Tiny} \sm{t : \Tiny} A\substuck{t'}{L}(t)} P\substuck{i}{L}(f(i), \rbind{i})\right) && \text{(Definition of $P$)} \\
+    &\equiv \prd{(t,a) : \sm{t : \Tiny} A(t)} \rform{L}{(P\substuck{i}{L})(t\substuck{i}{L},a\substuck{i}{L}, \rbind{i})} && \text{(Proposition~\ref{prop:dep-adj})} \\
+    &\defeq \prd{(t,a) : \sm{t : \Tiny} A(t)} \rform{L}{\left((\prd{s : \Tiny} t \substuck{s}{L} = s) \to \rget{B}\right)} && \text{(Definition of $P$)} \\
+    &\defeq \prd{(t,a) : \sm{t : \Tiny} A(t)} \rdepform{t}{B} && \text{(Definition of $B^{1/t}$)} \\
+    &\equiv\prd{t : \Tiny} A(t) \to \rdepform{t}{B} && \text{(Currying)}
+  \end{align*}
+
+  \iffalse
   To apply dependent adjointness (Proposition~\ref{prop:dep-adj}) we
   need to massage the interior of the $\rform{L}$ a little. Define
   \begin{align*}
@@ -1494,6 +1655,7 @@ The whole point of this construction was:
     &\equiv \rform{L} \left(\left(\prd{s:\Tiny} (\varkey{L}{s}A)(s)\right) \to \rget{B} \right) && \text{(Contractible pair)}
   \end{align*}
   is what we wanted to show.
+  \fi
 \end{proof}
 
 \begin{corollary}
@@ -1551,14 +1713,14 @@ The whole point of this construction was:
 % If we try to make rules for this directly and build in the required
 % substitutions, we get something horrible like
 % \begin{mathpar}
-%   \inferrule*[left=$\surd$-intro]{\Gamma, \ctxlock{L} \yields B
+%   \inferrule*[left=$\rformsym$-intro]{\Gamma, \ctxlock{L} \yields B
 %   \type \and \Gamma \yields t : \Tiny}{\Gamma \yields
-%   \rdepform{t}{B} \type} \and \inferrule*[left=$\surd$-intro]{\Gamma
+%   \rdepform{t}{B} \type} \and \inferrule*[left=$\rformsym$-intro]{\Gamma
 %   \yields t' : \Tiny \and \Gamma, \ctxlock{L} \yields t : \Tiny \and
 %   \Gamma, \ctxlock{L} \yields a : A(t) \and \Gamma, \ctxlock{L}, f :
 %   \prd{t : \Tiny} A \yields b : B}{\Gamma \yields
 %   \rintro{L}{f.b,t,a} : \rdepform{t}{B}} \and
-%   \inferrule*[left=$\surd$-elim]{\Gamma, i : \Tiny \yields r :
+%   \inferrule*[left=$\rformsym$-elim]{\Gamma, i : \Tiny \yields r :
 %   \rdepform{i}{B}}{\Gamma \yields \relim{i.r} : B}
 % \end{mathpar}
 % where we need \emph{two} terms of $\Tiny$ in the intro rule, one to
@@ -1570,18 +1732,19 @@ $\mathcal{E}/X$ is itself also tiny~\cite[Theorem 1.4]{yetter:tiny},
 but crucially, the right adjoint $\rformsym$ is not preserved by
 pullback.
 
-Instead, the right adjoint $\surd_{/X}$ on an object
+Instead, the right adjoint $\rformslicesym{X}$ on an object
 $D \to X$ can be calculated by the pullback
 \[
   \begin{tikzcd}
-    \Sigma_X \surd_{/X} \ar[r] \ar[d] & \rformu (\Sigma_{\Tiny \to X} \Pi_c D) \ar[d, "\rformu \Pi_c D"] \\
+    \Sigma_X \rformslicesym{X} D \ar[r] \ar[d] & \rformu (\Sigma_{\Tiny \to X} \Pi_c D) \ar[d, "\rformu \Pi_c D"] \\
     X \ar[r, "\eta" swap] & \rformu (\Tiny \to X)
   \end{tikzcd}
 \]
 where $c : X \to (\Tiny \to X)$ is the transpose of the projection
 $X \times \Tiny \to X$, and the $\rformsym$ on the right is the global
-adjoint to $(\Tiny \to -)$.
+adjoint to $(\Tiny \to -)$. This can also be described internally, but I have not come across a use for it.
 
+\iffalse
 Let us describe this internally. Suppose $X$ is a closed
 type. Switching perspective from the slice over $X$ to type families
 over $X$, we first calculate the dependent product of a type family
@@ -1607,6 +1770,7 @@ simply substitute:
   \equiv &\rform{L}{\left(\prd{x' : X} (c(x') = (\lambda k. x\substuck{k}{L}) \to D(x')\right)} \\
   \equiv &\rform{L}{\left(\prd{x' : X} \left( \prd{k : \Tiny} (x' = x\substuck{k}{L})\right) \to D(x')\right)} \\
 \end{align*}
+\fi
 
 \iffalse
 \section{$\Tiny$-discreteness}
@@ -1622,22 +1786,44 @@ simply substitute:
   the coequaliser definition in Yetter}
 \fi
 
+\section{Tininess Closure Properties}
 
-\section{Tiny Objects and Models of Cubical Type Theory}
+\newcommand{\trform}[2]{\sqrt[#1]{}#2}
 
-\newcommand{\Set}{\mathsf{Set}}
-\newcommand{\El}{\mathsf{El}}
-\newcommand{\univfib}{\mathsf{U}}
-\newcommand{\Int}{\mathbb{I}}
-\newcommand{\isFib}{\mathsf{isFib}}
-\newcommand{\Fib}{\mathsf{Fib}}
-\newcommand{\Compstr}{\mathsf{C}}
+An external definition for now:
+\begin{definition}
+  A type $S$ is \emph{tiny} if for any closed type $X$ there is a type $\trform{S}{X}$ and a map
+  \begin{align*}
+    (S \to \trform{S}{X}) \to X
+  \end{align*}
+  that induces a bijection on homspaces or whatever
+\end{definition}
 
-Let us repeat the construction of \cite[Theorem 5.2]{lops}, and see to
-what extent things compute better.
+Or something more circular?
+\begin{definition}
+  A type $S$ is \emph{tiny} if there is a map $\trform{S}{-} : \trform{S}{\univ} \to \univ$ so that for any $X : \univ$ there is a map
+  \begin{align*}
+    \eta_X : X \to \trform{S}{S \to X}
+  \end{align*}
+  such that the precomposition map
+  \begin{align*}
+    \trform{S}{X}
+  \end{align*}
+\end{definition}
 
-The ambient type theory is intensional, predicative Martin-L\"of Type
-Theory, with function extensionality and UIP: we therefore denote the
+For example:
+\begin{proposition}
+  If $S$ and $T$ are tiny then $S \times T$ is tiny.
+\end{proposition}
+
+
+\section{Internal Models of Cubical Type Theory}
+
+Finally, a little commentary on cubical type theory. Let us repeat the
+construction of \cite[Theorem 5.2]{lops}, and see whether anything
+becomes more explicit.
+
+The ambient type theory is intensional, predicative MLTT with function extensionality and UIP: we therefore denote the
 ambient universe $\Set$ rather than $\univ$, and aim to construct a
 new universe $\univfib$ that classifies fibrations. We also have an
 interval type $\Int$, which is assumed to be tiny.
@@ -1646,105 +1832,105 @@ The main piece of input data is a \emph{notion of composition
   structure}, which is a function $\Compstr : (\Int \to \Set) \to \Set$ that
 parameterises the notion of fibration. There are some derived structures:
 \begin{align*}
-  \isFib &: (\Gamma : \Set)(A : \Gamma \to \Set) \to \Set \\
+  \isFib &: \prd{\Gamma : \Set}{A : \Gamma \to \Set} \Set \\
   \isFib(\Gamma)(A) &:\defeq \prd{p : \Int \to \Gamma} \Compstr(A \circ p) \\
   \Fib &: \Set \to \Set \\
   \Fib(\Gamma) &:\defeq \sm{A : \Gamma \to \Set} \isFib(\Gamma)(A)
 \end{align*}
 
 The original construction is done in crisp type theory, with an
-interval asserted to be tiny via the crisp adjunction
+interval asserted to be tiny by axiomatically adding a ``crisp
+adjunction''
 \begin{align*}
   \flat((\Int \to A) \to B) \equiv \flat(A \to \rformu{B})
 \end{align*}
 The types in our construction will be a little different: the
 $\rformu$ former itself is used to guard the adjunction, as we saw in
-\ref{?}.
+Section~\ref{sec:adjointness}.
 
-\begin{theorem}
-
-\end{theorem}
-\begin{proof}
-  The construction proceeds the same way as in \cite{lops}. The
-  universe classifying fibrations is constructed by the pullback
-  \[
+The construction proceeds the same way as in \cite{lops}. The
+universe classifying fibrations is constructed by the pullback
+\[
   \begin{tikzcd}
     \univfib \ar[r] \ar[d] \arrow[dr, phantom, "\lrcorner", very near start] & \rformu \sm{A : \Set} A \ar[d, "\rformu \proj_1"] \\
     \Set \ar[r, "\Compstr^\vee" swap] & \rformu \Set
   \end{tikzcd}
-  \]
-  By definition,
-  \begin{align*}
-    \Compstr^\vee(X) :\defeq \rintro{L}{\Compstr(\lambda j. X\substuck{j}{L})}
-  \end{align*}
-
-  For the third time in this note, we calculate a pullback directly by
-  commuting $\rformsym$ with $\Sigma$ and substituting.
-  \begin{align*}
-    \univfib
-    &:\defeq \sm{X : \Set} \rformu{\rget{A}} [\Compstr^\vee(X)/A] \\
-    % &\defeq \sm{X : \Set} \rformu{(A\substuck{i}{L})(\rbind{i})} [\Compstr^\vee(X)/A] \\
-    % &\defeq \sm{X : \Set} \rform{K}{(\Compstr^\vee(\substuck{i}{K}))(\rbind{i})} \\
-    &\defeq \sm{X : \Set} \rform{L}{\Compstr(\lambda j. X\substuck{j}{L})}
-  \end{align*}
-
-  The projection maps in the original pullback square correspond to
-  \begin{align*}
-    &\pi_1 : \univfib \to \Set \\
-    &\pi_1(X, r) :\defeq X \\
-    &\pi_2 : \univfib \to \rformu \sm{A : \Set} A \\
-    &\pi_2(X, r)(\lock{L}) :\defeq (\Compstr(\lambda j. X\substuck{j}{L}), \rget{r})
-  \end{align*}
-
-  The map $\pi_2$ can be transposed back to
-  \begin{align*}
-    \pi_2{}_\vee
-    &: (\Int \to \univfib) \to \sm{A : \Set} A \\
-    \pi_2{}_\vee(p)
-    &:\defeq \pi_2(p(k), \rbind{k}) \\
-    &\defeq \pi_2(\proj_1 p(k), \proj_2 p(k), \rbind{k}) \\
-    &\defeq (\Compstr(\lambda j. (\proj_1 p(k))\subkey{j}{L}), \rget{(\proj_2 p(k))})\sublock{L}{k} \\
-    &\defeq (\Compstr(\lambda j. \proj_1 p(j)), (\proj_2 p(i))(\rbind{i}))
-  \end{align*}
-  And so we have a completely explicit definition of $\El$ for $\univfib$:
-  \begin{align*}
-    \El &: \Fib \univfib \\
-    \El &:\defeq (\pi_1, \lambda p. (\proj_2 p(i))(\rbind{i}))
-  \end{align*}
-
-  It remains to define
-  \begin{align*}
-    \code : \prd{\Gamma : \rformu \Set}{\Phi : \rformu \Fib \Gamma} \Gamma \to \univfib
-  \end{align*}
-  So suppose we have
-  \begin{align*}
-    \Gamma &: \rformu \Set \\
-    \Phi &: \rformu \sm{\rget{\Gamma} \to \Set} \prd{p : \Int \to \rget{\Gamma}} \Compstr(A \circ p)
-  \end{align*}
-  (so that $\Phi \defeq (A, \alpha)$).
-\end{proof}
-
-
-\mvrnote{Maybe we should change the definition of $\Fib$!} The natural thing would be to set
+\]
+By definition,
 \begin{align*}
-  \Fib(\Gamma) :\defeq \sm{A : \Gamma \to \Set}
-  \rform{L}{\left(\prd{p : \prd{i : \Int} \Gamma\substuck{i}{L}}
-  \Compstr(\lambda i. (A\substuck{i}{L})(p(i)))\right)}
+  \Compstr^\vee(X) :\defeq \rintro{L}{\Compstr(\lambda j. X\substuck{j}{L})}
 \end{align*}
-And then the classifying property of $\univfib$ holds for any
-$\Gamma$ at all, not just crisp ones! Is this good for anything?
 
-But in fact we can simplify further...
+For the second time in this note, we calculate a pullback directly by
+commuting $\rformsym$ with $\Sigma$ and substituting. The convenient definition of $\univfib$ is then
+\begin{align*}
+  \univfib
+  &:\defeq \sm{X : \Set} \rformu{\rget{A}} [\Compstr^\vee(X)/A] \\
+  % &\defeq \sm{X : \Set} \rformu{(A\substuck{i}{L})(\rbind{i})} [\Compstr^\vee(X)/A] \\
+  % &\defeq \sm{X : \Set} \rform{K}{(\Compstr^\vee(\substuck{i}{K}))(\rbind{i})} \\
+  &\defeq \sm{X : \Set} \rform{L}{\Compstr(\lambda j. X\substuck{j}{L})}
+\end{align*}
 
-\begin{definition}
-  The type of \emph{fibration structures} on (any!) type $A$ is
-  \begin{align*}
-    \isFib(A) :\defeq \rform{L}{\Compstr(\lambda i. A\substuck{i}{L})}
-  \end{align*}
-\end{definition}
+The projection maps in the original pullback square are given by
+\begin{align*}
+  &\pi_1 : \univfib \to \Set \\
+  &\pi_1(X, r) :\defeq X \\
+  &\pi_2 : \univfib \to \rformu \sm{A : \Set} A \\
+  &\pi_2(X, r, \ctxlock{L}) :\defeq (\Compstr(\lambda j. X\substuck{j}{L}), \rget{r})
+\end{align*}
 
-And define $\univfib :\defeq \sm{A : \Set} \isFib(A)$. Let's silently coerce a term $A : \univfib$ to $A : \Set$ by first projection.
+The map $\pi_2$ can be transposed back to
+\begin{align*}
+  \pi_2{}_\vee
+  &: (\Int \to \univfib) \to \sm{A : \Set} A \\
+  \pi_2{}_\vee(p)
+  &:\defeq \pi_2(p(k), \rbind{k}) \\
+  &\defeq \pi_2(\proj_1 p(k), \proj_2 p(k), \rbind{k}) \\
+  &\defeq (\Compstr(\lambda j. (\proj_1 p(k))\subkey{j}{L}), \rget{(\proj_2 p(k))})\sublock{L}{k} \\
+  &\defeq (\Compstr(\lambda j. \proj_1 p(j)), (\proj_2 p(i))(\rbind{i}))
+\end{align*}
+And so we have a explicit definition of $\El$ for $\univfib$:
+\begin{align*}
+  \El &: \Fib \univfib \\
+  \El &:\defeq (\pi_1, \lambda p. (\proj_2 p(i))(\rbind{i}))
+\end{align*}
 
+We can also define a map
+\begin{align*}
+  \code : \prd{\Gamma : \rformu \Set}{\Phi : \rformu (\Fib \Gamma)} \Gamma \to \univfib
+\end{align*}
+as in the paper.
+
+But looking at this construction, things are much simpler if we
+slightly change the definition of $\Fib$. Surrounding the body of $\isFib$ with a $\rformsym$, define
+\begin{align*}
+  \isNewFib(\Gamma)(A) :\defeq \rform{L}{\left(\prd{p : \prd{i : \Int} \Gamma\substuck{i}{L}} \Compstr(\lambda i. (A\substuck{i}{L})(p(i)))\right)}
+\end{align*}
+The counit for $\rformsym$ gives a function
+$\isNewFib(\Gamma)(A) \to \isFib(\Gamma)(A)$, which induces a map
+$\NewFib(\Gamma) \to \Fib(\Gamma)$.
+
+Unchanged, the type $\univfib$ defined above classifies \emph{non-crisp}
+fibrations, in that there is an equivalence between non-crisp
+functions $\Gamma \to \univfib$ and $\NewFib(\Gamma)$.
+
+This is clear once we simplify further... The definition of
+$\isNewFib$ is precisely of the shape to apply dependent
+adjointness, and
+\begin{align*}
+  \isNewFib(\Gamma)(A) \equiv \prd{g : \Gamma} \rform{L}{\Compstr(\lambda i. A\substuck{i}{L}(g))})
+\end{align*}
+so
+\begin{align*}
+  \NewFib(\Gamma) &:\defeq \sm{A : \Gamma \to \Set} \isNewFib(\Gamma)(A) \\
+                  &\equiv \sm{A : \Gamma \to \Set} \prd{g : \Gamma} \rform{L}{\Compstr(\lambda i. A\substuck{i}{L}(g))} \\
+                  &\equiv \Gamma \to \sm{A : \Set} \rform{L}{\Compstr(\lambda i. A\substuck{i}{L})} 
+\end{align*}
+and the codomain is exactly the definition of $\univfib$. We get an
+element of $\NewFib \univfib$ tautologically, running the identity
+$\univfib \to \univfib$ backwards through that equivalence.
+
+\iffalse
 \subsection{CCHM}
 \label{sec:cchm}
 
@@ -2053,9 +2239,9 @@ Actually now $\rget{R^*}$ has type
 %}{\Gamma, x : A, \Gamma' \yields \varkeye{i_n}{t_n} \dots \varkeye{i_1}{t_1} x : \varkeye{i_n}{t_n} \dots \varkeye{i_1}{t_1} A} \and
 %\end{mathpar}
 %\begin{mathpar}
-%\inferrule*[left=$\surd$-intro]{\Gamma, \ctxlocke{i} \yields A \type}{\Gamma \yields \rforme{i} A \type} \and
-%\inferrule*[left=$\surd$-intro]{\Gamma, \ctxlocke{i} \yields a : A}{\Gamma \yields \rintroe{i} a : \rforme{i} A} \and
-%\inferrule*[left=$\surd$-elim]{\Gamma, i : \Tiny \yields r : \rforme{i} A}{\Gamma \yields \relim{i.r} : A[\sublock{}{i}]} \\
+%\inferrule*[left=$\rformsym$-intro]{\Gamma, \ctxlocke{i} \yields A \type}{\Gamma \yields \rforme{i} A \type} \and
+%\inferrule*[left=$\rformsym$-intro]{\Gamma, \ctxlocke{i} \yields a : A}{\Gamma \yields \rintroe{i} a : \rforme{i} A} \and
+%\inferrule*[left=$\rformsym$-elim]{\Gamma, i : \Tiny \yields r : \rforme{i} A}{\Gamma \yields \relim{i.r} : A[\sublock{}{i}]} \\
 %\relim{i.\rintroe{i} a} \defeq a[\sublock{}{i}] \and r \defeq \rintroe{i}{\relim{j. \varkeye{j}{i} r}} \text{ for } r : \rforme{i} A
 %\end{mathpar}
 %This is probably bad: $\rintroe{i} a$ is a term that looks like it binds a fresh variable $i$, but that is not actually a variable you can use anywhere other than in the subscript of $\key$.
@@ -2151,40 +2337,6 @@ Actually now $\rget{R^*}$ has type
 %\end{align*}
 \fi
 
-\section{Total Substitutions}
-\begin{mathpar}
-\inferrule*{~}{\Gamma \yields \cdot : \cdot} \and
-\inferrule*{\Gamma \yields \theta : \Delta \and \Gamma \yields a : A[\theta]}{\Gamma \yields \theta, a : \Delta, a} \\
-\inferrule*{\Gamma, i : \Tiny \yields \theta : \Delta}{\Gamma \yields (\theta,i./\lockn{L}) : \Delta,\ctxlock{L}} \and \
-\inferrule*[fraction={-{\,-\,}-}]{\Gamma \yields \theta : \Delta}{\Gamma, \ctxlock{L}, l : \Tiny \yields (\admkey{L}{l} \theta) : \Delta}
-\end{mathpar}
-With the last one (hopefully) admissible. Then we can define functoriality, the unit and swap:
-\begin{mathpar}
-\inferrule*[fraction={-{\,-\,}-}]{\Gamma \yields \theta : \Delta}{\Gamma,\ctxlock{L} \yields \theta,\ctxlock{L} : \Delta,\ctxlock{L}} \and
-\inferrule*[fraction={-{\,-\,}-}]{~}{\Gamma \yields (\id_\Gamma, \sublock{L}{i}) : \Gamma, i : \Tiny, \ctxlock{L}} \and
-\inferrule*[fraction={-{\,-\,}-}]{~}{\Gamma,\ctxlock{L},\ctxlock{K} \yields \id_\Gamma,\mathrm{swap}_{\lockn{L},\lockn{K}} : \Gamma,\ctxlock{K},\ctxlock{L}}
-\end{mathpar}
-by
-\begin{align*}
-\theta,\ctxlock{L} &:\defeq (\admkey{L}{i} \theta),i./\lockn{L} \\
-\id_\Gamma,\sublock{L}{i} &:\defeq \id_\Gamma, j/i, j./\lockn{L} \\
-\id_\Gamma,\mathrm{swap}_{\lockn{L},\lockn{K}} &:\defeq (\admkey{K}{l}((\admkey{L}{k}\id_\Gamma),k./\lockn{K})), l./\lockn{L}
-\end{align*}
-
-Couple of concerns: First, how is $\admkey{L}{l}$ defined on $\theta, k./\lockn{K}$? There we have $\Gamma, k : \Tiny \yields \theta : \Delta$ and have to end up with $\Gamma, \ctxlock{L}, l : \Tiny \yields ? : \Delta$. We need to be able to only apply $\admkey{L}{l}$ to a prefix of the context:
-\begin{mathpar}
-\inferrule*[fraction={-{\,-\,}-}]{\Gamma, \Gamma' \yields \theta : \Delta}{\Gamma, \ctxlock{L}, l : \Tiny, \admkey{L}{l}\Gamma' \yields \admkey{L}{l} \theta : \Delta}
-\end{mathpar}
-If we successfully make this rule admissible, then we don't have to worry about substituting into it.
-
-Second, does substitution by $\theta,i./\lockn{L}$ actually work? The only place it could go wrong is the variable rule, because \rulen{var} is the only rule with a $\ctxlock{L}$ in the conclusion. Substitution into a variable is defined by
-\begin{align*}
-(\varkeye{\lockn{L}_n}{t_n} \dots \varkeye{\lockn{L}_1}{t_1} x)[\theta, i./\lockn{L}_n, \theta'] &:\defeq (\varkeye{\lockn{L}_{n-1}}{t_{n-1}} \dots \varkeye{\lockn{L}_1}{t_1} x)[\theta][t[\theta, i./\lockn{L}_n, \theta']/i] \\
-&\defeq (\varkeye{\lockn{L}_{n-1}}{t_{n-1}} \dots \varkeye{\lockn{L}_1}{t_1} x)[\theta \circ (\id_\Delta, t[\theta, i./\lockn{L}_n, \theta']/i)]
-\end{align*}
-and eventually $x[\theta, a/x, \theta'] :\defeq a$ once all the keys are gone.
-
-
 \section{The Bug}
 
 The variable rule is not closed under substitution, if the superscripts on the keys get complicated:
@@ -2245,6 +2397,8 @@ or in that case maybe it should be postfix
 
 %\section{Combined With Cohesion??}
 %Heaven help us
+
+\fi
 
 \printbibliography
 
