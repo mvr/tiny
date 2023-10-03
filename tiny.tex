@@ -139,8 +139,10 @@ mincrossrefs=99]{biblatex}
 \newcommand{\stubra}[1]{\llbracket #1 \rrbracket}
 % \newcommand{\stubra}[1]{\lfloor #1 \rfloor}
 \newcommand{\admbra}[1]{[ #1 ]}
-\newcommand{\subkeye}[2]{\admbra{#1/\key_{#2}}}
-\newcommand{\subkey}[2]{\subkeye{#1}{\lockn{#2}}}
+\newcommand{\subkeyoe}[2]{#1/\key_{#2}}
+\newcommand{\subkeyo}[2]{\subkeyoe{#1}{\lockn{#2}}}
+\newcommand{\subkeye}[2]{\admbra{\subkeyoe{#1}{#2}}}
+\newcommand{\subkey}[2]{\admbra{\subkeyo{#1}{#2}}}
 \newcommand{\subkeyeann}[5]{\admbra{\key(#3; #1/#2; #4; #5)}}
 \newcommand{\subkeyann}[5]{\subkeyeann{#1}{\lockn{#2}}{#3}{#4}{#5}}
 \newcommand{\subkeyetele}[4]{\admbra{\key(#3; #1/#2; #4)}}
@@ -361,40 +363,45 @@ with the counit and unit substitutions.
   \emph{free} variable usage in $a$, a bit like the underlining operation in
   the type theory for $\natural$.
 
-  We will need a generalised version of this counit rule, for going
-  under binders in the term $a : A$. The actual counit rule is then
+  We need to generalise this rule in a couple of ways. First, we need
+  to allow an additional telescope to be carried along, so that we may
+  go under binders in the term $a : A$.
+
+  Additionally, we may need to apply the counit to multiple locks
+  simultaneously. To facilitate this, for a context
+  $\Gamma, \Gamma' \ctx$, let $\locksin{\Gamma'}$ denote the (ordered)
+  list of context locks
+  $\ctxlocke{\lockn{L}_1}, \dots, \ctxlocke{\lockn{L}_n}$ that appear
+  in the telescope $\Gamma'$.
+  
+  The generalised rule is then:
   \begin{mathpar}
-    \inferrule*[left=counit,fraction={-{\,-\,}-}]
-    {\Gamma, \Gamma'' \yields a : A \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}
-    {\Gamma, \ctxlock{L}, \Gamma', \Gamma'' \subkey{t}{L} \yields a \subkey{t}{L} : A \subkey{t}{L} } \\
     \inferrule*[left=counit-tele,fraction={-{\,-\,}-}]
-    {\Gamma \yields \Gamma'' \tele \and \Gamma, \ctxlock{L}, \Gamma' \yields t : \Tiny}
-    {\Gamma, \ctxlock{L}, \Gamma' \yields \Gamma'' \subkey{t}{L} \tele}
+    {\Gamma \yields \Gamma'' \tele \and \Gamma, \Gamma' \yields t_i : \Tiny
+      \text{ for } \lockn{L}_i \in \locksin{\Gamma'} }
+    {\Gamma, \Gamma' \yields \Gamma'' \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} \tele} \and
+    \inferrule*[left=counit,fraction={-{\,-\,}-}]
+    {\Gamma, \Gamma'' \yields a : A \and \Gamma, \Gamma' \yields t_i : \Tiny
+      \text{ for } \lockn{L}_i \in \locksin{\Gamma'} }
+    {\Gamma, \Gamma', \Gamma'' \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} \yields a \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} : A \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} }
   \end{mathpar}
 
-  Formally, the contexts and telescopes used should be annotated in
-  the syntax. When it is necessary to make clear which are used, we
-  will write $a \subkeyann{t}{L}{\Gamma}{\Gamma'}{\Gamma''}$ and
-  $\Gamma''\subkeytele{t}{L}{\Gamma}{\Gamma'}$.
+  % Formally, the contexts and telescopes used should be annotated in
+  % the syntax. When it is necessary to make clear which are used, we
+  % will write $a \subkeyann{t}{L}{\Gamma}{\Gamma'}{\Gamma''}$ and
+  % $\Gamma''\subkeytele{t}{L}{\Gamma}{\Gamma'}$.
 
 \item \textbf{Variable Usage.} To use a variable $x : A$ that is
-  behind some context locks, we have to provide a term $t_i : \Tiny$
+  behind some context locks, we must provide a term $t_i : \Tiny$
   for each lock between that variable and the front of the context.
 
-  Suppose that in the context $\Gamma, x : A, \Gamma'$, the telescope
-  $\Gamma'$ contains the locks
-  $\ctxlocke{\lockn{L}_1}, \dots, \ctxlocke{\lockn{L}_n}$ from left to
-  right; we write this (ordered) list as $\locksin{\Gamma'}$.
   \begin{mathpar}
     \inferrule*[left=var]
     {\Gamma, x : A, \Gamma' \yields t_i : \Tiny
       \text{ for } \lockn{L}_i \in \locksin{\Gamma'} }
-    {\Gamma, x : A, \Gamma' \yields x \substucke{t_1}{\lockn{L}_1}
-      \dots \substucke{t_n}{\lockn{L}_n} :
-      A \subkeye{t_1}{\lockn{L}_1} \dots \subkeye{t_n}{\lockn{L}_n}}
+    {\Gamma, x : A, \Gamma' \yields x \stubra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} :
+      A \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}}}
   \end{mathpar}
-  This is all one term, though we write the stuck counits using
-  separate brackets.
 
   The type of the variable usage has the admissible counit rule
   applied to it: typically these counits will not be stuck on the type
@@ -407,10 +414,8 @@ with the counit and unit substitutions.
     % &\yields x \substucke{t_1}{\lockn{L}_1} \dots
     %   \substucke{t_n}{\lockn{L}_n} : A\subkeye{t_1}{\lockn{L}_1} \dots \subkeye{t_n}{\lockn{L}_n} \\
     \Gamma, \Gamma'[a/x]
-    &\yields (x \substucke{t_1}{\lockn{L}_1} \dots
-      \substucke{t_n}{\lockn{L}_n})[a/x] \\
-    &:\defeq a\subkeye{t_1[a/x]}{\lockn{L}_1} \dots
-      \subkeye{t_n[a/x]}{\lockn{L}_n} : A\subkeye{t_1[a/x]}{\lockn{L}_1} \dots \subkeye{t_n[a/x]}{\lockn{L}_n}
+    &\yields x \stubra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}}[a/x] \\
+    &:\defeq a\admbra{\subkeyoe{t_1[a/x]}{\lockn{L}_1}, \dots, \subkeyoe{t_n[a/x]}{\lockn{L}_n}}
   \end{align*}
   
 \item \textbf{Calculating the Counit.} For now, assume that all the
@@ -430,34 +435,34 @@ with the counit and unit substitutions.
   and the variable usage looks like
   \begin{align*}
     \Gamma_1, x : A, \Gamma_2, \Gamma''
-    &\yields x \substucke{j_1}{\lockn{J}_1} \dots
-      \substucke{j_{m}}{\lockn{J}_{m}}
-      \substucke{k_1}{\lockn{K}_{1}}
-      \dots \substucke{k_n}{\lockn{K}_n} \\
-    &: A\subkeye{j_1}{\lockn{J}_1} \dots
-      \subkeye{j_{m}}{\lockn{J}_{m}}
-      \subkeye{k_1}{\lockn{K}_{1}}
-      \dots \subkeye{k_n}{\lockn{K}_n}
+    &\yields x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+      \subkeyoe{j_{m}}{\lockn{J}_{m}},
+      \subkeyoe{k_1}{\lockn{K}_{1}},
+      \dots, \subkeyoe{k_n}{\lockn{K}_n}} \\
+    &: A \admbra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+      \subkeyoe{j_{m}}{\lockn{J}_{m}},
+      \subkeyoe{k_1}{\lockn{K}_{1}},
+      \dots, \subkeyoe{k_n}{\lockn{K}_n}}
   \end{align*}
   Then we slot the new $\subkey{t}{L}$ into place, and leave it stuck:
   \begin{align*}
     \Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma'' \yields
-    (&x \substucke{j_1}{\lockn{J}_1} \dots
-      \substucke{j_{m}}{\lockn{J}_{m}}
-      \substucke{k_1}{\lockn{K}_{1}}
-       \dots \substucke{k_n}{\lockn{K}_n}) \subkey{t}{L} \\
+    (&x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+      \subkeyoe{j_{m}}{\lockn{J}_{m}},
+      \subkeyoe{k_1}{\lockn{K}_{1}},
+      \dots, \subkeyoe{k_n}{\lockn{K}_n}}) \subkey{t}{L} \\
     :\defeq {}
-     &x \substucke{j_1}{\lockn{J}_1} \dots
-       \substucke{j_{m}}{\lockn{J}_{m}}
-       \substuck{t}{L}
-      \substucke{k_1}{\lockn{K}_{1}}
-       \dots \substucke{k_n}{\lockn{K}_n}
+     &x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+       \subkeyoe{j_{m}}{\lockn{J}_{m}},
+       \subkeyo{t}{L},
+      \subkeyoe{k_1}{\lockn{K}_{1}},
+       \dots, \subkeyoe{k_n}{\lockn{K}_n}}
   \end{align*}
 
   When working informally, this means counting how many
   $\ctxlocke{\lockn{K}_i}$ are created between the application of
   $\subkey{t}{L}$ and the variable (by the use of some of the typing
-  rules), and placing $\subkey{t}{L}$ to the left of all the newly
+  rules), and placing $\subkeyo{t}{L}$ to the left of all the newly
   created $\ctxlocke{\lockn{K}_i}$.
 
   If instead $x : A$ is in $\Gamma''$, so
@@ -467,8 +472,8 @@ with the counit and unit substitutions.
   the variable usage looks like
   \begin{align*}
     \Gamma, \Gamma_1'', x : A, \Gamma_2''
-    &\yields x \substucke{k_1}{\lockn{K}_1} \dots \substucke{k_n}{\lockn{K}_n} \\
-    &: A\subkeye{k_1}{\lockn{K}_1} \dots \subkeye{k_n}{\lockn{K}_n}
+    &\yields x \stubra{\subkeyoe{k_1}{\lockn{K}_{1}}, \dots, \subkeyoe{k_n}{\lockn{K}_n}} \\
+    &: A\admbra{\subkeyoe{k_1}{\lockn{K}_{1}}, \dots, \subkeyoe{k_n}{\lockn{K}_n}} \\
   \end{align*}
   Access to $x$ is not affected by the addition of the lock
   $\ctxlock{L}$ (which is placed to the left of it), so the variable
@@ -484,56 +489,59 @@ with the counit and unit substitutions.
     locks in $\Gamma''$ by the time we reach the variable $x$. We
     therefore need to (admissibly) apply
     \begin{align*}
-      \subkeye{k_1}{\lockn{K}_{1}} \dots \subkeye{k_n}{\lockn{K}_n}
+      -\admbra{\subkeyoe{k_1}{\lockn{K}_{1}}, \dots, \subkeyoe{k_n}{\lockn{K}_n}}
     \end{align*}
     to the term $t$, so:
     \begin{align*}
-      &x \substucke{j_1}{\lockn{J}_1} \dots
-      \substucke{j_{m}}{\lockn{J}_{m}}
-      \substucke{k_1}{\lockn{K}_{1}}
-      \dots \substucke{k_n}{\lockn{K}_n} \subkey{t}{L} \\
+      &x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+      \subkeyoe{j_{m}}{\lockn{J}_{m}},
+      \subkeyoe{k_1}{\lockn{K}_{1}},
+        \dots, \subkeyoe{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
       :\defeq {}
-      &x \substucke{j_1}{\lockn{J}_1} \dots
-        \substucke{j_{m}}{\lockn{J}_{m}} \substuck{(t\subkeye{k_1}{\lockn{K}_{1}}
-      \dots \subkeye{k_n}{\lockn{K}_n})}{L} \substucke{k_1}{\lockn{K}_{1}}
-      \dots \substucke{k_n}{\lockn{K}_n}
+      &x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+       \subkeyoe{j_{m}}{\lockn{J}_{m}},
+       \subkeyo{t\admbra{\subkeyoe{k_1}{\lockn{K}_{1}}, \dots, \subkeyoe{k_n}{\lockn{K}_n}}}{L},
+        \subkeyoe{k_1}{\lockn{K}_{1}},
+        \dots, \subkeyoe{k_n}{\lockn{K}_n}}
     \end{align*}
   \item Instead, the terms $j_i$ and $k_i$ may not closed, and so the variables
     used in them might now lie behind the new lock $\ctxlock{L}$. The
     term $t$ is used to unlock them:
     \begin{alignat*}{2}
-      &x && \substucke{j_1}{\lockn{J}_1} \dots
-            \substucke{j_{m}}{\lockn{J}_{m}}
-            \substucke{k_1}{\lockn{K}_{1}}
-            \dots \substucke{k_n}{\lockn{K}_n} \subkey{t}{L} \\
+      &x  \stubra{&&\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+            \subkeyoe{j_{m}}{\lockn{J}_{m}},
+            \subkeyoe{k_1}{\lockn{K}_{1}},
+            \dots, \subkeyoe{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
       :\defeq {}
       &x
-         &&\substucke{j_1\subkey{t}{L}}{\lockn{J}_1} \\
-      &&& \dots \\
-      &&& \substucke{j_{m}\subkey{t}{L}}{\lockn{J}_{m}} \\
-      &&& \substuck{t}{L} \\
-      &&& \substucke{k_{1}\subkey{t}{L}}{\lockn{K}_{1}} \\
-      &&& \dots \\
-      &&& \substucke{k_n\subkey{t}{L}}{\lockn{K}_n}
+        \stubra{&& \subkeyoe{j_1\subkey{t}{L}}{\lockn{J}_1},   \\
+      &&& \dots, \\
+      &&& \subkeyoe{j_{m}\subkey{t}{L}}{\lockn{J}_{m}}, \\
+      &&& \subkeyo{t}{L}, \\
+      &&& \subkeyoe{k_{1}\subkey{t}{L}}{\lockn{K}_{1}}, \\
+      &&& \dots, \\
+      &&& \subkeyoe{k_n\subkey{t}{L}}{\lockn{K}_n}
+          }
     \end{alignat*}
 
   \item Finally, and slightly horrifyingly, the two complications can happen
-  at the same time, yielding the final, general definition:
-  \begin{alignat*}{2}
-    &x && \substucke{j_1}{\lockn{J}_1} \dots
-          \substucke{j_{m}}{\lockn{J}_{m}}
-          \substucke{k_1}{\lockn{K}_{1}}
-          \dots \substucke{k_n}{\lockn{K}_n} \subkey{t}{L} \\
-    :\defeq {}
-    &x
-       &&\substucke{j_1\subkey{t}{L}}{\lockn{J}_1} \\
-    &&& \dots \\
-    &&& \substucke{j_{m}\subkey{t}{L}}{\lockn{J}_{m}} \\
-    &&& \substuck{t\subkeye{k_{1}\subkey{t}{L}}{\lockn{K}_{1}} \dots \subkeye{k_n\subkey{t}{L}}{\lockn{K}_n}}{L} \\
-    &&& \substucke{k_{1}\subkey{t}{L}}{\lockn{K}_{1}} \\
-    &&& \dots \\
-    &&& \substucke{k_n\subkey{t}{L}}{\lockn{K}_n}    
-  \end{alignat*}
+    at the same time, yielding the final, general definition:
+    \begin{alignat*}{2}
+      &x  \stubra{&&\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+            \subkeyoe{j_{m}}{\lockn{J}_{m}},
+            \subkeyoe{k_1}{\lockn{K}_{1}},
+            \dots, \subkeyoe{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
+      :\defeq {}
+      &x
+        \stubra{&& \subkeyoe{j_1\subkey{t}{L}}{\lockn{J}_1},   \\
+      &&& \dots, \\
+      &&& \subkeyoe{j_{m}\subkey{t}{L}}{\lockn{J}_{m}}, \\
+      &&& \subkeyo{t\admbra{\subkeyoe{k_1\subkey{t}{L}}{\lockn{K}_{1}}, \dots, \subkeyoe{k_n\subkey{t}{L}}{\lockn{K}_n}}}{L}, \\
+      &&& \subkeyoe{k_{1}\subkey{t}{L}}{\lockn{K}_{1}}, \\
+      &&& \dots, \\
+      &&& \subkeyoe{k_n\subkey{t}{L}}{\lockn{K}_n}
+          }
+    \end{alignat*}
   \mvrnote{It's not so obvious to me that this terminates!}
 
 \iffalse  
@@ -624,18 +632,23 @@ with the counit and unit substitutions.
   on whether the underlying variable is the one being `searched for'
   by the \rulen{unit} rule.
   \begin{align*}
-    &i \substucke{j_1}{\lockn{J}_1} \dots
-    \substucke{j_{m}}{\lockn{J}_{m}} \substuck{t}{L} \substucke{k_{1}}{\lockn{K}_{1}}
-    \dots \substucke{k_n}{\lockn{K}_n}\sublock{L}{i} \\
+    &i \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+       \subkeyoe{j_{m}}{\lockn{J}_{m}},
+       \subkeyo{t}{L},
+      \subkeyoe{k_1}{\lockn{K}_{1}},
+       \dots, \subkeyoe{k_n}{\lockn{K}_n}}\sublock{L}{i} \\
     :\defeq {}
     &t\sublock{L}{i} \\
-    &x \substucke{j_1}{\lockn{J}_1} \dots
-    \substucke{j_{m}}{\lockn{J}_{m}} \substuck{t}{L} \substucke{k_{1}}{\lockn{K}_{1}},
-    \dots \substucke{k_n}{\lockn{K}_n}\sublock{L}{i} \\
+    &x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
+       \subkeyoe{j_{m}}{\lockn{J}_{m}},
+       \subkeyo{t}{L},
+      \subkeyoe{k_1}{\lockn{K}_{1}},
+       \dots, \subkeyoe{k_n}{\lockn{K}_n}} \\
     :\defeq {}
-    &x\substucke{j_1\sublock{L}{i}}{\lockn{J}_1} \dots
-    \substucke{j_{m}\sublock{L}{i}}{\lockn{J}_{m}} \substucke{k_{1}\sublock{L}{i}}{\lockn{K}_{1}}
-    \dots \substucke{k_n\sublock{L}{i}}{\lockn{K}_n}
+    &x\stubra{\subkeyoe{j_1\sublock{L}{i}}{\lockn{J}_1}, \dots,
+       \subkeyoe{j_{m}\sublock{L}{i}}{\lockn{J}_{m}},
+      \subkeyoe{k_1\sublock{L}{i}}{\lockn{K}_{1}},
+       \dots, \subkeyoe{k_n\sublock{L}{i}}{\lockn{K}_n}}
   \end{align*}
   % \begin{align*}
   %   &x \stubra{\subkeye{s_1}{\lockn{K}_1}, \dots,
@@ -679,7 +692,7 @@ with the counit and unit substitutions.
 %   \end{mathpar}
 % \end{remark}
 
-These rules are all peculiar, but if we insist on pushing the
+These rules are peculiar, but if we insist on pushing the
 admissible rules to the leaves I believe something like this is forced
 on us by the setting we are trying to capture.
 
@@ -715,22 +728,23 @@ Applying \rulen{counit} in various locations.
   &&\yields a\substuck{k}{K} : \NN \\
   &x : \NN,\ctxlock{K}, k : \Tiny, \ctxlock{L}, i : \Tiny
   &&\yields a\substuck{k}{K} \subkey{i}{L} \\
-  &&&\defeq a\substuck{k\subkey{i}{L}}{K} \substuck{i}{L}  \\
-  &&&\defeq a\substuck{k\substuck{i}{L}}{K} \substuck{i}{L} : \NN  \\
+  &&&\defeq a\stubra{\subkeyo{k\subkey{i}{L}}{K}, \subkeyo{i}{L}}  \\
+  &&&\defeq a\stubra{\subkeyo{k\substuck{i}{L}}{K}, \subkeyo{i}{L}} : \NN  \\
   ~\\
   &x : \NN, \ctxlock{K}, k : \Tiny
   &&\yields a\substuck{k}{K} : \NN \\
   &x : \NN, \ctxlock{K}, \ctxlock{L}, i : \Tiny, k : \Tiny
   &&\yields a\substuck{k}{K} \subkey{i}{L} \\
-  &&&\defeq a\substuck{k\subkey{i}{L}}{K} \substuck{i}{L}  \\
-  &&&\defeq a\substuck{k}{K} \substuck{i}{L} : \NN \\
+  &&&\defeq a\stubra{\subkeyo{k\subkey{i}{L}}{K}, \subkeyo{i}{L}}  \\
+  &&&\defeq a\stubra{\subkeyo{k}{K}, \subkeyo{i}{L}} : \NN \\
   ~\\
   &x : \NN, \ctxlock{K}, k : \Tiny
   &&\yields a\substuck{k}{K} : \NN \\
   &x : \NN, \ctxlock{L}, i : \Tiny, \ctxlock{K}, k : \Tiny
   &&\yields a\substuck{k}{K} \subkey{i}{L} \\
-  &&&\defeq a\substuck{i\subkey{k\subkey{i}{L}}{K}}{L} \substuck{k}{K} \\
-  &&&\defeq a\substuck{i\substuck{k}{K}}{L} \substuck{k}{K} : \NN
+  &&&\defeq a\stubra{\subkeyo{i\subkey{k\subkey{i}{L}}{K}}{L}, \subkeyo{k}{K}} \\
+  &&&\defeq a\stubra{\subkeyo{i\subkey{k}{K}}{L}, \subkeyo{k}{K}} \\
+  &&&\defeq a\stubra{\subkeyo{i\substuck{k}{K}}{L}, \subkeyo{k}{K}}
 \end{alignat*}
 
 Applying \rulen{unit} in various locations:
@@ -812,22 +826,22 @@ replaces $i$ with the identity, and so the entire term reduces to $j$.
   \begin{align*}
     x : \Tiny, y : \Tiny, \ctxlock{L}, \ctxlock{K}
     &\yields
-      (x\substuck{1}{L}\substuck{2}{K},y\substuck{3}{L}\substuck{4}{K})
+      (x\stubra{\subkeyo{1}{L},\subkeyo{2}{K}},y\stubra{\subkeyo{3}{L},\subkeyo{4}{K}})
       : \Tiny \times \Tiny
   \end{align*}
   Applying two different substitutions allows us to select which of
   the stuck keys to apply:
   \begin{align*}
-    & (x\substuck{1}{L}\substuck{2}{K}, y\substuck{3}{L}\substuck{4}{K})[i/x][j/y][\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
-    & \defeq (i\substuck{1}{L}\substuck{2}{K}, j\substuck{3}{L}\substuck{4}{K})[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
-    & \defeq (i\substuck{1}{L}\substuck{2}{K}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}], j\substuck{3}{L}\substuck{4}{K}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}]) \\
+    & (x\stubra{\subkeyo{1}{L},\subkeyo{2}{K}}, y\stubra{\subkeyo{3}{L},\subkeyo{4}{K}})[i/x][j/y][\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
+    & \defeq (i\stubra{\subkeyo{1}{L},\subkeyo{2}{K}}, j\stubra{\subkeyo{3}{L},\subkeyo{4}{K}})[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
+    & \defeq (i\stubra{\subkeyo{1}{L},\subkeyo{2}{K}}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}], j\stubra{\subkeyo{3}{L},\subkeyo{4}{K}}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}]) \\
     & \defeq (1, 4)
   \end{align*}
   and
   \begin{align*}
-    & (x\substuck{1}{L}\substuck{2}{K}, y\substuck{3}{L}\substuck{4}{K})[j/x][i/y][\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
-    & \defeq (j\substuck{1}{L}\substuck{2}{K}, i\substuck{3}{L}\substuck{4}{K})[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
-    & \defeq (j\substuck{1}{L}\substuck{2}{K}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}], i\substuck{3}{L}\substuck{4}{K}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}]) \\
+    & (x\stubra{\subkeyo{1}{L},\subkeyo{2}{K}}, y\stubra{\subkeyo{3}{L},\subkeyo{4}{K}})[j/x][i/y][\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
+    & \defeq (j\stubra{\subkeyo{1}{L},\subkeyo{2}{K}}, i\stubra{\subkeyo{3}{L},\subkeyo{4}{K}})[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}] \\
+    & \defeq (j\stubra{\subkeyo{1}{L},\subkeyo{2}{K}}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}], i\stubra{\subkeyo{3}{L},\subkeyo{4}{K}}[\rbind{i}/\ctxlock{L}][\rbind{j}/\ctxlock{K}]) \\
     & \defeq (2, 3)
   \end{align*}
   Once we have the type former, we will be able to cause these
@@ -1098,9 +1112,9 @@ context.
   If a variable $x : \rform{L} A$ is behind several locks
   $\ctxlocke{\lockn{K}_1} \dots \ctxlocke{\lockn{K}_n}$, then let
   \begin{align*}
-    \rget{x} :\defeq (x \substucke{i}{\lockn{K}_1}
-    \dots \substucke{i}{\lockn{K}_n})(\rbind{i}) : A \subkeye{i}{\lockn{K}_1}
-    \dots \subkeye{i}{\lockn{K}_n}\sublock{L}{i}
+    \rget{x} :\defeq (x \stubra{\subkeyoe{i}{\lockn{K}_1},
+    \dots, \subkeyoe{i}{\lockn{K}_n}})(\rbind{i}) : A \admbra{\subkeyoe{i}{\lockn{K}_1},
+    \dots, \subkeyoe{i}{\lockn{K}_n}}\sublock{L}{i}
   \end{align*}
   in particular, if $x : \rform{L} A$ is behind no locks in the
   context then $\rget{x} :\defeq \varepsilon_A(x)$.
@@ -1213,11 +1227,11 @@ extent do we actually get the adjointness $(\Tiny \to -) \dashv \rformu -$?
     &\Phi^{-1}(\Phi(g\substuck{k}{K}), \rbind{k}, h) \\
     &\defeq \Phi(g\substuck{k}{K}, h(k), \rbind{k})
     && \text{(Definition of $\Phi^{-1}$)} \\
-    &\defeq \left( (g\substuck{k}{K}\substuck{i}{L})(\rbind{i}, \lambda j. a \substuck{j}{L}) \right)[h(k)/a]\sublock{L}{k}
+    &\defeq \left( (g\stubra{\subkeyo{k}{K},\subkeyo{i}{L}})(\rbind{i}, \lambda j. a \substuck{j}{L}) \right)[h(k)/a]\sublock{L}{k}
     && \text{(Definition of $\Phi$)} \\
-    &\defeq \left( (g\substuck{k}{K}\substuck{i}{L})(\rbind{i}, \lambda j. (h(k)) \substuck{j}{L}) \right)\sublock{L}{k}
+    &\defeq \left( (g\stubra{\subkeyo{k}{K},\subkeyo{i}{L}})(\rbind{i}, \lambda j. (h(k)) \substuck{j}{L}) \right)\sublock{L}{k}
     && \text{(Computing $[h(k)/a]$)} \\
-    &\defeq (g\substuck{k}{K}\substuck{i}{L}\sublock{L}{k})(\rbind{i}, \lambda j. (h(k)) \substuck{j}{L}\sublock{L}{k})
+    &\defeq (g\stubra{\subkeyo{k}{K},\subkeyo{i}{L}}\sublock{L}{k})(\rbind{i}, \lambda j. (h(k)) \substuck{j}{L}\sublock{L}{k})
     && \text{(Commuting $\sublock{L}{k}$ with application)} \\
     &\defeq (g\substuck{k}{K}[i/k])(\rbind{i}, \lambda j. (h(k)) [j/k])
     && \text{(Computing $\substuck{-}{L}\sublock{L}{k}$)} \\
@@ -1583,10 +1597,10 @@ calculate: it is the fibre of that $\proj_1$ over the value of the bottom map at
   &\rform{L}{(\rget{X} \to \rget{B})}[(\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s})/X] \\
   &\defeq \rform{L}{(X\substuck{l}{L}(\rbind{l}) \to \rget{B})}[\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}/X] \\
   &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s} \right)\subkey{l}{L}(\rbind{l}) \to \rget{B} \right)} \\
-  &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\substuck{l}{L}\substuck{s}{K} = s}\right)(\rbind{l}) \to \rget{B} \right)} \\
-  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l}{L}\substuck{s}{K} = s)\sublock{K}{l} \to \rget{B} \right)} \\
-  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l}{L}\substuck{s}{K}\sublock{K}{l} = s) \to \rget{B} \right)} \\
-  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l}{L}[s/l] = s) \to \rget{B} \right)} \\  
+  &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}} = s}\right)(\rbind{l}) \to \rget{B} \right)} \\
+  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}} = s)\sublock{K}{l} \to \rget{B} \right)} \\
+  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}}\sublock{K}{l} = s) \to \rget{B} \right)} \\
+  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l[s/l]}{L} = s) \to \rget{B} \right)} \\  
   &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{s}{L} = s) \to \rget{B} \right)}
 \end{align*}
 and so we take this as our definition.
