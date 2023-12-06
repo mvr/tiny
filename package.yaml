@@ -1,0 +1,40 @@
+nname:                tiny
+version:             0.1.0.0
+license:             BSD3
+category:            Language
+
+default-extensions:
+- BangPatterns
+- ConstraintKinds
+- DeriveFunctor
+- DerivingVia
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- ImplicitParams
+- LambdaCase
+- MultiParamTypeClasses
+- NoMonomorphismRestriction
+- OverloadedStrings
+- PatternSynonyms
+- RankNTypes
+- RecordWildCards
+- StandaloneDeriving
+- Strict
+- TupleSections
+- ViewPatterns
+
+ghc-options:
+- -Wall
+- -Wno-name-shadowing
+- -Wno-missing-signatures
+- -Wno-unused-do-bind
+- -Wno-unused-matches
+
+source-dirs: .
+
+executable:
+  main: MainRedux.hs
+  dependencies:
+    - base >= 4.7 && < 5
+    - megaparsec

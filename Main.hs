@@ -1,22 +1,18 @@
--- TODO:
--- OK, I need a new plan. Say we are evaluating a term
--- key^t_L (λ x. a)
-
--- Then there are a couple of possibilities: if there has already been
--- a beta redex for the lock L, then this will need to put the term t
--- in the place of whatever variable y was in the redex.
-
--- Otherwise, the key should end up at the leaves of a
-
--- So VRootIntro needs to accept a closure (that binds no new variables)
+-- An unholy combination of
+-- https://github.com/AndrasKovacs/elaboration-zoo/blob/master/02-typecheck-closures-debruijn/Main.hs
+-- https://github.com/jozefg/blott/blob/master/src/lib
+-- https://github.com/AndrasKovacs/cctt/tree/main/src
+-- https://github.com/RedPRL/cooltt/tree/main/src/core
+-- https://davidchristiansen.dk/tutorials/implementing-types-hs.pdf
 
 module Main where
 
-import Debug.Trace
+-- import Debug.Trace
 
-import Control.Applicative hiding (many, some)
-import Control.Monad
+import Control.Monad (unless, guard)
 import Data.Char
+import Data.Coerce
+import Data.Maybe (fromMaybe)
 import Data.Void
 import System.Environment
 import System.Exit
@@ -26,78 +22,25 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Printf
 import Prelude hiding (lookup)
 
--- examples
---------------------------------------------------------------------------------
-
-ex0 = main' "nf" $ unlines [
-  "let id : (A : U) -> A -> A",
-  "     = \\A x. x in",
-  "let foo : U = U in",
-  "let bar : U = id id in",     -- we cannot apply any function to itself (already true in simple TT)
-  "id"
-  ]
-
-rex0 =
-  main' "nf" $
-    unlines
-      [ "let counit : (root L T) -> T",
-        "     = \\x. relim i. x in",
-        "counit"
-      ]
-
--- -- basic polymorphic functions
--- ex1 = main' "nf" $ unlines [
---   "let id : (A : U) -> A -> A",
---   "      = \\A x. x in",
---   "let const : (A B : U) -> A -> B -> A",
---   "      = \\A B x y. x in",
---   "id ((A B : U) -> A -> B -> A) const"
---   ]
-
--- -- Church-coded natural numbers (standard test for finding eval bugs)
--- ex2 = main' "nf" $ unlines [
---   "let Nat  : U = (N : U) -> (N -> N) -> N -> N in",
---   "let five : Nat = \\N s z. s (s (s (s (s z)))) in",
---   "let add  : Nat -> Nat -> Nat = \\a b N s z. a N s (b N s z) in",
---   "let mul  : Nat -> Nat -> Nat = \\a b N s z. a N (b N s) z in",
---   "let ten      : Nat = add five five in",
---   "let hundred  : Nat = mul ten ten in",
---   "let thousand : Nat = mul ten hundred in",
---   "thousand"
---   ]
-
--- syntax
---------------------------------------------------------------------------------
-
--- Minimal bidirectional elaboration
---   surface syntax vs core syntax
---      (intermediate: raw syntax -->(scope checking) -->raw syntax with indices
---   (our case: difference: no de Bruijn indices in surface syntax, but they're in core syntax)
-
--- | De Bruijn index.
 newtype Ix = Ix Int deriving (Eq, Show, Num) via Int
-
--- | De Bruijn level.
-newtype Lvl = Lvl Int deriving (Eq, Show, Num) via Int
-
-newtype LockIx = LockIx Int deriving (Eq, Show, Num) via Int
-
-newtype LockLvl = LockLvl Int deriving (Eq, Show, Num) via Int
+newtype Lvl = Lvl Int deriving (Eq, Ord, Show, Num) via Int
+-- and | GenLvl Int ?
 
 type Name = String
 
 type LockName = String
 
 data Raw
-  = RVar Name -- x
-  | RLam Name Raw -- \x. t                            -- let f : A -> B = \x -> ....
-  | RApp Raw Raw -- t u
-  | RU -- U
-  | RPi Name Raw Raw -- (x : A) -> B
-  | RLet Name Raw Raw Raw -- let x : A = t in u
+  = RVar Name [Raw]
+  | RLam Name Raw
+  | RApp Raw Raw
+  | RU
+  | RPi Name Raw Raw
+  | RLet Name Raw Raw Raw
   | RSrcPos SourcePos Raw -- source position for error reporting
+
+  ---- New:
   | RTiny
-  | RKey LockName Raw Raw
   | RRoot LockName Raw
   | RRootIntro LockName Raw
   | RRootElim Name Raw
@@ -109,360 +52,487 @@ data Raw
 type Ty = Tm
 
 data Tm
-  = Var Ix
-  | Lam Name Tm
+  = Lam Name Tm
   | App Tm Tm
   | U
   | Pi Name Ty Ty
   | Let Name Ty Tm Tm
-  -- New:
+
+  ---- New:
+  | Var Ix [Tm]
   | Tiny
-  | Key Tm Tm
-  | RootIntro Tm
-  | RootElim Name Tm
+  -- | Key Tm Tm
   | Root LockName Ty
+  | RootIntro LockName Tm
+  | RootElim Name Tm
 
 -- values
 ------------------------------------------------------------
 
-data Entry
-  = EnvVal Val
-  | EnvRef LockLvl
-  | EnvLock
+data EnvVars v =
+  EnvEmpty
+  | EnvVal v (EnvVars v)
+  | EnvLock (Val -> EnvVars v)
+
+data Env v = Env
+  { envVars   :: EnvVars v,
+    envLength :: Int,
+    envFresh  :: Int }
+  deriving (Show, Functor)
+
+emptyEnv :: Env v
+emptyEnv = Env EnvEmpty 0 0
+
+instance Show v => Show (EnvVars v) where
+  showsPrec d EnvEmpty = showString "EnvEmpty"
+  showsPrec d (EnvVal v env) = showParen (d > 10) $
+    showString "EnvVal "
+      . showsPrec 11 v
+      . showString " "
+      . showsPrec 11 env
+  showsPrec d (EnvLock fenv) = showParen (d > 10) $
+    showString "EnvLock "
+      -- . showsPrec 11 "..."
+      . showsPrec 11 (fenv (VNeutral VTiny (NVar (Lvl $ 1000) VTiny [])))
+
+-- Just derive this
+instance Functor EnvVars where
+  fmap f EnvEmpty = EnvEmpty
+  fmap f (EnvVal v env) = EnvVal (f v) (fmap f env)
+  fmap f (EnvLock fenv) = EnvLock (\v -> fmap f (fenv v))
+
+makeVarLvl :: Lvl -> VTy -> Val
+makeVarLvl lvl a = VNeutral a (NVar lvl a [])
+
+makeVar :: Env v -> VTy -> Val
+makeVar env a = VNeutral a (NVar (Lvl $ envLength env) a [])
+
+lvl2Ix :: Env v -> Lvl -> Ix
+lvl2Ix env (Lvl x) = Ix (envLength env - x - 1)
+
+ix2Lvl :: Env v -> Ix -> Lvl
+ix2Lvl env (Ix x) = Lvl (envLength env - x - 1)
+
+lvlMax :: Lvl -> Lvl -> Lvl
+lvlMax (Lvl a) (Lvl b) = Lvl (max a b)
+
+extVal :: Env v -> v -> Env v
+extVal env v = env { envVars = EnvVal v (envVars env),
+                     envLength = 1 + envLength env,
+                     envFresh = 1 + envFresh env }
+
+extStuck :: Keyable v => Env v -> Env v
+extStuck env = env { envVars = EnvLock (\v -> addKey (Lvl $ envFresh env) v (envVars env)),
+                     envLength = 1 + envLength env,
+                     envFresh = 1 + envFresh env }
+
+extUnit :: Lvl -> Env Val -> Env Val
+extUnit lvl env = env { envVars = EnvLock (\v -> sub (Lvl $ envFresh env) v lvl (envVars env)),
+                        envLength = 1 + envLength env,
+                        envFresh = 1 + envFresh env }
+
+data Closure = Closure (Env Val) Tm
   deriving (Show)
-data Env = Env [Entry] [Val]
+
+data RootClosure = RootClosure (Env Val) Tm
   deriving (Show)
 
-extVal :: Env -> Val -> Env
-extVal (Env vs keys) v = Env (EnvVal v : vs) keys
-
-extLock :: Env -> () -> Env
-extLock (Env vs keys) v = Env (EnvLock : vs) keys
-
-extKey :: Env -> Val -> Env
-extKey (Env vs keys) v = Env vs (v : keys)
-
-makeVar :: Env -> VTy -> Val
-makeVar (Env vs _) a = VNeutral a (NVar (Lvl (length vs)))
-
-data Closure = Closure Env Tm
+data BindTiny a = BindTiny Name Lvl a
   deriving (Show)
-data LockClosure = LockClosure Env Tm
-  deriving (Show)
+
 type VTy = Val
 
 data Val
-  = VNeutral ~VTy Neutral
+  = VNeutral VTy Neutral
   | VLam Name Closure
-  | VPi Name ~VTy Closure
+  | VPi Name VTy Closure
   | VU
-  -- New:
+  ---- New:
   | VTiny
-  | VDelayedKey ~Val ~Val
-  | VRoot LockName LockClosure
-  | VRootIntro LockClosure
+  | VRoot LockName RootClosure
+  | VRootIntro LockName RootClosure
+  -- ---- Debugging:
+  -- | VLockValue Int
   deriving (Show)
 
 data Neutral
-  = NVar Lvl
-  | NApp Neutral ~Normal
-  -- New:
-  | NRootElim Name VTy Closure
+  = NVar Lvl VTy [Val]
+  | NApp Neutral Normal
+  ---- New:
+  | NRootElim (BindTiny Neutral)
   deriving (Show)
+
 data Normal = Normal {nfTy :: VTy, nfTerm :: Val}
   deriving (Show)
---------------------------------------------------------------------------------
 
-infixl 8 $$
+infixl 8 ∙
+class Apply a b c | a -> b c where
+  (∙) :: a -> b -> c
 
-lvl2Ix :: Env -> Lvl -> Ix
-lvl2Ix (Env vs keys) (Lvl x) = Ix (length vs - x - 1)
+instance Apply Closure Val Val where
+  Closure cloenv t ∙ u = eval (extVal cloenv u) t
 
-ix2Lvl :: [a] -> Ix -> Lvl
-ix2Lvl as (Ix x) = Lvl (length as - x - 1)
+instance (Show a, Renameable a) => Apply (BindTiny a) Lvl a where
+  BindTiny l i a ∙ j
+    | i == j    = a
+    | otherwise = rename j i a
 
-(!!<) :: [a] -> Int -> a
-as !!< i = as !! (length as - i - 1)
+infixl 8 ↬
+class CoApply a b c | a -> b c where
+  (↬) :: a -> b -> c
 
-($$) :: Closure -> Val -> Valv
-($$) (Closure (Env vs keys) t) ~u = eval (Env (EnvVal u : vs) keys) t
+instance CoApply RootClosure Lvl Val where
+  RootClosure cloenv t ↬ lvl = eval (extUnit lvl cloenv) t
 
--- ($$^) :: Closure -> LockLvl -> Val
--- ($$^) (Closure (Env vs keys) t) l = eval (Env (EnvRef l : vs) keys) t
+appRootClosureStuck :: RootClosure -> Val
+appRootClosureStuck (RootClosure cloenv t) = eval (extStuck cloenv) t
 
-runLock :: LockClosure -> Val
-runLock (LockClosure (Env vs keys) t) = eval (Env (EnvLock : vs) keys) t
+-- substitutions
+------------------------------------------------------------
 
-applyUnit :: LockClosure -> Val
-applyUnit (LockClosure (Env (_ : vs) keys) t) = eval (Env (EnvLock : EnvRef (LockLvl (length keys)) : vs) keys) t
-applyUnit (LockClosure (Env [] keys) t) = error "impossible applyUnit"
+-- TODO: "NVar and EnvLock are the only interesting cases" is this true?
 
-delayVar :: Env -> Ix -> Val -> Val
-delayVar env 0 t = t
-delayVar env@(Env (EnvVal _ : vs) keys) i t = delayVar (Env vs keys) (i - 1) t
-delayVar env@(Env (EnvRef _ : vs) keys) i t = delayVar (Env vs keys) (i - 1) t
-delayVar env@(Env (EnvLock : vs) (u : keys)) i t = VDelayedKey u (delayVar (Env vs keys) (i - 1) t)
-delayVar env _ t = error "impossible delayVar"
+-- Appends keys to all free variables
+-- This cannot cause reduction
+class Keyable a where
+  addKeys :: Lvl -> [Val] -> a -> a
+  addKey :: Lvl -> Val -> a -> a
+  addKey fr k = addKeys fr [k]
 
-delayKey :: Env -> LockLvl -> Val -> Val
-delayKey env@(Env vs keys) i t | i == LockLvl (length keys) = t
-delayKey env@(Env (EnvVal _ : vs) keys) i t = delayKey (Env vs keys) i t
-delayKey env@(Env (EnvRef _ : vs) keys) i t = delayKey (Env vs keys) i t
-delayKey env@(Env (EnvLock : vs) (u : keys)) i t = VDelayedKey u (delayKey (Env vs keys) i t)
-delayKey env _ t = error "impossible delayKey"
+instance Keyable Name where
+  addKeys fr ks n = n
 
-keyEntry :: Val -> Entry -> Entry
-keyEntry u (EnvVal t) = EnvVal (VDelayedKey u t)
-keyEntry u (EnvRef l) = EnvRef l
-keyEntry u (EnvLock) = EnvLock
+instance (Keyable a, Keyable b) => Keyable (a, b) where
+  addKeys fr ks (a, b) = (addKeys fr ks a, addKeys fr ks b)
 
-keyClosure :: Val -> Closure -> Closure
-keyClosure u (Closure (Env vs keys) t) = Closure (Env (fmap (keyEntry u) vs) (fmap (VDelayedKey u) keys)) t
+instance (Keyable a, Keyable b, Keyable c) => Keyable (a, b, c) where
+  addKeys fr ks (a, b, c) = (addKeys fr ks a, addKeys fr ks b, addKeys fr ks c)
 
-forceKeys :: Val -> Val
-forceKeys (VDelayedKey u t) = case forceKeys t of
-  VLam x c -> VLam x (keyClosure u c)
-  t -> VDelayedKey u t
-forceKeys t = t
+instance Keyable Val where
+  addKeys fr ks = \case
+    VNeutral ty n -> VNeutral (addKeys fr ks ty) (addKeys fr ks n)
+    VLam x c -> VLam x (addKeys fr ks c)
+    VPi x a b -> VPi x (addKeys fr ks a) (addKeys fr ks b)
+    VU -> VU
+    VTiny -> VTiny
+    VRoot l c -> VRoot l (addKeys fr ks c)
+    VRootIntro l c -> VRootIntro l (addKeys fr ks c)
+
+instance Keyable Neutral where
+  addKeys fr ks = \case
+    NVar lvl ty keys -> NVar lvl (addKeys fr ks ty) (ks ++ fmap (addKeys fr ks) keys)
+    NApp f a -> NApp (addKeys fr ks f) (addKeys fr ks a)
+    NRootElim (BindTiny l lvl n) -> undefined -- NRootElim (BindTiny l lvl (addKeys fr ks n))
+
+instance Keyable Normal where
+  addKeys fr ks (Normal ty a) = Normal (addKeys fr ks ty) (addKeys fr ks a)
+
+instance Keyable Closure where
+  addKeys fr ks (Closure env t) = Closure (addKeys fr ks env) t
+
+instance Keyable RootClosure where
+  addKeys fr ks (RootClosure env t) = RootClosure (addKeys fr ks env) t
+
+instance Keyable v => Keyable (EnvVars v) where
+  addKeys fr ks EnvEmpty = EnvEmpty
+  addKeys fr ks (EnvVal v env) = EnvVal (addKeys fr ks v) (addKeys fr ks env)
+  addKeys fr ks (EnvLock f) = EnvLock (addKeys fr ks . f)
+
+instance Keyable v => Keyable (Env v) where
+  addKeys fr ks env = env { envFresh = max (envFresh env) (coerce fr),
+                            envVars = addKeys fr ks (envVars env) }
+
+-- Substitutes a value for a variable
+-- This may cause reduction
+-- so Neutral -> Val and Normal -> Val
+class Substitutable a b | a -> b where
+  sub :: Lvl -> Val -> Lvl -> a -> b
+
+instance Substitutable Val Val where
+  sub fr v i = \case
+    VNeutral ty n -> sub fr v i n
+    VLam x c -> VLam x (sub fr v i c)
+    VPi x a b -> VPi x (sub fr v i a) (sub fr v i b)
+    VU -> VU
+    VTiny -> VTiny
+    VRoot l c -> VRoot l (sub fr v i c)
+    VRootIntro l c -> VRootIntro l (sub fr v i c)
+
+instance Substitutable Neutral Val where
+  sub fr v i = \case
+    var@(NVar j ty ks) | i == j -> addKeys fr (fmap (sub fr v i) ks) v
+                       | otherwise -> VNeutral subty (NVar j subty (fmap (sub fr v i) ks)) where subty = sub fr v i ty
+    NApp f a -> sub fr v i f ∙ sub fr v i a
+    NRootElim (BindTiny x lvl n) -> undefined -- sub fr v i (rename fresh lvl n) ↬ fresh
+      where fresh = Lvl undefined
+    -- TODO: what if v contains NVars with level larger than size? Need to freshen the binder past all those too
+
+instance Substitutable Normal Val where
+  sub fr v i (Normal ty a) = sub fr v i a
+
+instance Substitutable Closure Closure where
+  sub fr v i (Closure env t) = Closure (sub fr v i env) t
+
+instance Substitutable RootClosure RootClosure where
+  sub fr v i (RootClosure env t) = RootClosure (sub fr v i env) t
+
+-- instance Substitutable v v' => Substitutable (Env v) (Env v') where
+instance Substitutable (EnvVars Val) (EnvVars Val) where
+  sub fr v i EnvEmpty = EnvEmpty
+  sub fr v i (EnvVal e env) = EnvVal (sub fr v i e) (sub fr v i env)
+  sub fr v i (EnvLock f) = EnvLock (sub fr v i . f)
+
+instance Substitutable (Env Val) (Env Val) where
+  sub fr v i env = env { envFresh = max (envFresh env) (coerce fr),
+                         envVars  = sub fr v i (envVars env) }
+
+-- Switch one de Bruijn level for another
+-- The variables have the same types,
+-- so this cannot cause reduction
+class Renameable a where
+  rename :: Lvl -> Lvl -> a -> a
+
+instance Renameable Val where
+  rename v i = \case
+    VNeutral ty n -> VNeutral (rename v i ty) (rename v i n)
+    VLam x c -> VLam x (rename v i c)
+    VPi x a b -> VPi x (rename v i a) (rename v i b)
+    VU -> VU
+    VTiny -> VTiny
+    VRoot l c -> VRoot l (rename v i c)
+    VRootIntro l c -> VRootIntro l (rename v i c)
+
+instance Renameable Neutral where
+  rename v i = \case
+    NVar j ty ks | i == j -> NVar v (rename v i ty) (fmap (rename v i) ks)
+                 | otherwise -> NVar j (rename v i ty) (fmap (rename v i) ks)
+    NApp f a -> NApp (rename v i f) (rename v i a)
+    NRootElim bt -> NRootElim (rename v i bt)
+
+instance Renameable Normal where
+  rename v i (Normal ty a) = Normal (rename v i ty) (rename v i a)
+
+instance Renameable Closure where
+  rename v i (Closure env t) = Closure (rename v i env) t
+
+instance Renameable RootClosure where
+  rename v i (RootClosure env t) = RootClosure (rename v i env) t
+
+instance Renameable a => Renameable (BindTiny a) where
+  rename v i (BindTiny l j a) = undefined
+    -- | v == j = BindTiny l j (rename v i a) -- TODO: freshen
+    -- | otherwise = BindTiny l j (rename v i a)
+
+instance Renameable v => Renameable (EnvVars v) where
+  rename v i EnvEmpty = EnvEmpty
+  rename v i (EnvVal e env) = EnvVal (rename v i e) (rename v i env)
+  rename v i (EnvLock f) = EnvLock (rename v i . f)
+
+instance Renameable (Env Val) where
+  rename v i env = env {
+    envFresh = max (envFresh env) (1 + coerce v),
+    envVars = rename v i (envVars env)
+    }
+
+-- evaluation
+------------------------------------------------------------
 
 doApp :: Val -> Val -> Val
-doApp (VLam _ t) u = t $$ u
-doApp (VNeutral (VPi x aty bclo) ne) a =
-  let bty = bclo $$ a
-   in VNeutral bty (NApp ne (Normal aty a))
-doApp t u = error "Unexpected in App"
+doApp (VLam _ t) u = t ∙ u
+doApp (VNeutral (VPi x aty bclo) ne) a = VNeutral (bclo ∙ a) (NApp ne (Normal aty a))
+doApp t u = error $ "Unexpected in App: " ++ show t ++ " applied to " ++ show u
 
-doRootElim :: Name -> Env -> Tm -> Val -> Val
-doRootElim x env t (VRootIntro c) = applyUnit c
--- The following can't be right, what if c was closed before the new variable existed?
-doRootElim x env t (VNeutral (VRoot l c) _) = VNeutral (applyUnit c) (NRootElim x (VRoot l a) (Closure env t))
-doRootElim x env t v = error "Unexpected in RootElim"
+instance Apply Val Val Val where
+  (∙) = doApp
 
-eval :: Env -> Tm -> Val
-eval env@(Env vs keys) = \case
-  Var (Ix x) -> case vs !! x of
-    EnvVal v -> delayVar env (Ix x) v
-    EnvRef (LockLvl lockl) -> delayKey env (LockLvl lockl) (keys !!< lockl)
-    EnvLock -> error "impossible eval var"
-  Lam x t -> VLam x (Closure env t)
-  App t u -> doApp (forceKeys $ eval env t) (eval env u)
-  Pi x a b -> VPi x (eval env a) (Closure env b)
-  Let x _ t u -> eval (env `extVal` eval env t) u
-  U -> VU
-  Tiny -> VTiny
-  Key t u -> eval (env `extKey` eval env t) u
-  Root l a -> VRoot l (LockClosure env a)
-  RootIntro t -> VRootIntro (LockClosure env t)
-  RootElim x t -> doRootElim x env t (forceKeys $ eval (env `extVal` var) t)
-    where
-      var = makeVar env VTiny
+doRootElim :: Val -> Lvl -> Val
+doRootElim (VRootIntro l c) lvl = c ↬ lvl
+doRootElim (VNeutral (VRoot l c) ne) lvl = VNeutral (c ↬ lvl) (NRootElim (BindTiny "geni" lvl ne))
+doRootElim v lvl = error "Unexpected in RootElim"
 
-quoteType :: Env -> VTy -> Tm
-quoteType env VU = U
-quoteType env (VPi x a b) = Pi x (quoteType env a) (quoteType (env `extVal` var) (b $$ var))
-  where
-    var = makeVar env a
-quoteType env VTiny = Tiny
-quoteType env (VRoot x c) = Root x (quoteType (env `extLock` ()) (runLock c))
-quoteType env t = error "type expected"
+instance CoApply Val Lvl Val where
+  (↬) = doRootElim
 
-quote :: Env -> VTy -> Val -> Tm
-quote env VU vty = quoteType env vty
-quote env (VNeutral _ _) (VNeutral _ ne) = quoteNeutral env ne
-quote env (VPi x a b) (VLam x' c) = Lam x (quote (env `extVal` var) (b $$ var) (c $$ var))
-  where
-    var = makeVar env a
-quote env (VPi x a b) f = Lam x (quote (env `extVal` var) (b $$ var) (doApp f var))
-  where
-    var = makeVar env a
+doRootElimEta :: Env v -> Val -> Val
+doRootElimEta env r =
+  let lvl = Lvl $ envFresh env
+  in doRootElim (addKey (lvl+1) (makeVarLvl lvl VTiny) r) lvl
 
--- quote env ty (VDelayedKey u t) = quote (EnvKey u : env) t
--- quote env (VRoot l a) (VRootIntro c) = RootIntro (quote (EnvVar : env) (runLock c))
-quote env (VRoot l a) r =
-  RootIntro
-    ( quote
-        (env `extLock` ())
-        (runLock a)
-        (doRootElim l (env `extLock` ()) recur (VDelayedKey var r))
-    )
-  where
-    var = makeVar (env `extLock` ()) VTiny
-    ~recur = Key (Var 0) (quote (env `extLock` () `extVal` var) (VRoot l a) r)
+envLookup :: EnvVars v -> Ix -> [Val] -> v
+envLookup env i keys = go i keys env
+  where go 0 keys (EnvVal v envtail) = v
+        go i keys (EnvVal v envtail) = go (i-1) keys envtail
+        go i (k : keys) (EnvLock f) = go (i-1) keys (f k)
+        go i [] (EnvLock f) = error "Ran out of keys"
+        go _ _ EnvEmpty = error "Ran out of environment"
 
-restoreKeys :: Env -> Env -> Ix -> Tm -> Tm
-restoreKeys orig (Env _ keys) (Ix 0) u = foldl (\u k -> Key (quote orig VTiny k) u) u keys
-restoreKeys orig (Env (EnvVal _ : vs) keys) (Ix i) u = restoreKeys orig (Env vs keys) (Ix (i - 1)) u
-restoreKeys orig (Env (EnvRef _ : vs) keys) (Ix i) u = restoreKeys orig (Env vs keys) (Ix (i - 1)) u
-restoreKeys orig (Env (EnvLock : vs) (k:keys)) (Ix i) u = restoreKeys orig (Env vs keys) (Ix (i - 1)) u
-restoreKeys orig (Env [] _) (Ix i) v = error "impossible restoreKeys"
+eval :: Env Val -> Tm -> Val
+-- eval env t = traceShow (env, t) $ case t of
+eval env t = case t of
+  Lam x t                     -> VLam x (Closure env t)
+  App t u                     -> eval env t ∙ eval env u
+  Pi x a b                    -> VPi x (eval env a) (Closure env b)
+  Let x _ t u                 -> eval (env `extVal` eval env t) u
+  U                           -> VU
 
-quoteNeutral :: Env -> Neutral -> Tm
-quoteNeutral env = \case
-  NVar x -> restoreKeys env env (lvl2Ix env x) (Var (lvl2Ix env x))
-  NApp f (Normal aty a) -> App (quoteNeutral env f) (quote env aty a)
-  NRootElim x a c -> case c $$ var of
-    VNeutral r t -> RootElim x (quoteNeutral (env `extVal` var) t)
-    _ -> error "Closure didn't contain a neutral"
-    where
-      var = makeVar env VTiny
+  ---- New:
+  Var x keys                  -> envLookup (envVars env) x (fmap (eval env) keys)
+  Tiny                        -> VTiny
+  Root l a                    -> VRoot l (RootClosure env a)
+  RootIntro l t               -> VRootIntro l (RootClosure env t)
+  RootElim x t                -> let lvl = Lvl $ envFresh env in eval (env `extVal` makeVarLvl lvl VTiny) t ↬ lvl
 
-nf :: Env -> VTy -> Tm -> Tm
-nf env@(Env vs keys) a t = quote env a (eval env t)
 
-eqTy :: Env -> VTy -> VTy -> Bool
-eqTy env VU VU = True
+quoteType :: Env Val -> VTy -> Tm
+quoteType env = \case
+  (VNeutral _ ne)              -> quoteNeutral env ne
+  VU                           -> U
+  VPi x a b                    -> Pi x (quoteType env a) (let var = makeVar env a in quoteType (env `extVal` var) (b ∙ var))
+
+  ---- New:
+  VTiny                        -> Tiny
+  VRoot l a                    -> Root l (quoteType (extStuck env) (appRootClosureStuck a))
+  t                            -> error ("type expected, got " ++ show t)
+
+quote :: Env Val -> VTy -> Val -> Tm
+quote env = \cases
+  VU vty                         -> quoteType env vty
+  (VPi _ a b) (VLam x c)         -> Lam x (let var = makeVar env a in quote (env `extVal` var) (b ∙ var) (c ∙ var))
+  (VPi x a b) f                  -> Lam x (let var = makeVar env a in quote (env `extVal` var) (b ∙ var) (f ∙ var))
+
+  ---- New:
+  -- (VRoot _ a) (VRootIntro l c)   -> RootIntro l (quote (extStuck env)
+  --                                                      (appRootClosureStuck a)
+  --                                                      (doRootElimEta env _))
+  (VRoot l a) r                  -> RootIntro l (quote (extStuck env)
+                                                       (appRootClosureStuck a)
+                                                       (doRootElimEta env r))
+
+  -- For debugging
+  ty (VNeutral tyne ne)          -> if not (eqTy env ty tyne) then
+                                      error $ "neutral type mismatch: " ++ show ty  ++ ", " ++ show tyne
+                                    else
+                                      quoteNeutral env ne
+  -- _ (VNeutral _ ne)              -> quoteNeutral env ne
+
+  _ _                            -> error "Can't quote"
+
+quoteNeutral :: Env Val -> Neutral -> Tm
+quoteNeutral env (NVar x ty keys) = Var (lvl2Ix env x) (fmap (quote env VTiny) keys)
+quoteNeutral env (NApp f (Normal aty a)) = App (quoteNeutral env f) (quote env aty a)
+quoteNeutral env (NRootElim bt@(BindTiny l lvl r)) = RootElim l (let lvl = Lvl $ envFresh env in quoteNeutral (env `extVal` makeVarLvl lvl VTiny) (bt ∙ lvl))
+
+nf :: Env Val -> VTy -> Tm -> Tm
+nf env a t = quote env a (eval env t)
+
+-- conversion
+------------------------------------------------------------
+
+eqTy :: Env Val -> VTy -> VTy -> Bool
+-- eqTy env p1 p2 | traceShow ("eqTy:", p1, p2) False = undefined
+eqTy env VU VU =True
 eqTy env (VNeutral _ ne1) (VNeutral _ ne2) = eqNE env ne1 ne2
 eqTy env (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) =
   let var = makeVar env aty1
    in eqTy env aty1 aty2
-        && eqTy (env `extVal` var) (bclo1 $$ var) (bclo2 $$ var)
-
+        && eqTy (env `extVal` var) (bclo1 ∙ var) (bclo2 ∙ var)
 eqTy env VTiny VTiny = True
-eqTy env (VRoot _ a) (VRoot _ a') = eqTy (env `extLock` ()) (runLock a) (runLock a')
+eqTy env (VRoot _ a) (VRoot _ a') = eqTy (extStuck env) (appRootClosureStuck a) (appRootClosureStuck a')
 eqTy _ _ _ = False
 
-eqNF :: Env -> (VTy, Val) -> (VTy, Val) -> Bool
---eqNF size p1 p2 | traceShow ("eqNF:", p1, p2) False = undefined
+eqNF :: Env Val -> (VTy, Val) -> (VTy, Val) -> Bool
+-- eqNF env p1 p2 | traceShow ("eqNF:", p1, p2) False = undefined
 eqNF env (VU, ty1) (VU, ty2) = eqTy env ty1 ty2
-eqNF env (VNeutral _ _, VNeutral _ ne1) (VNeutral _ _, VNeutral _ ne2) = eqNE env ne1 ne2
 eqNF env (VPi _ aty1 bclo1, f1) (VPi _ aty2 bclo2, f2) =
   let var = makeVar env aty1
-   in eqNF (env `extVal` var) (bclo1 $$ var, doApp f1 var) (bclo2 $$ var, doApp f2 var)
-
-eqNF env (VRoot l1 aty1, r1) (VRoot l2 aty2, r2) =
-  let var = makeVar (env `extLock` ()) VTiny
-      recur1 = Key (Var 0) (quote (env `extLock` () `extVal` var) (VRoot l1 aty1) r1)
-      recur2 = Key (Var 0) (quote (env `extLock` () `extVal` var) (VRoot l2 aty2) r2)
-  in eqNF (env `extLock` ())
-     (runLock aty1, doRootElim l1 (env `extLock` ()) recur1 (VDelayedKey var r1))
-     (runLock aty2, doRootElim l2 (env `extLock` ()) recur2 (VDelayedKey var r2))
-
+   in eqNF (env `extVal` var) (bclo1 ∙ var, f1 ∙ var) (bclo2 ∙ var, f2 ∙ var)
+eqNF env (VRoot _ a1, r1) (VRoot _ a2, r2) =
+  eqNF (extStuck env)
+       (appRootClosureStuck a1, doRootElimEta env r1)
+       (appRootClosureStuck a2, doRootElimEta env r2)
+eqNF env (_, VNeutral _ ne1) (_, VNeutral _ ne2) = eqNE env ne1 ne2
 eqNF _ _ _ = False
 
-eqNE :: Env -> Neutral -> Neutral -> Bool
--- eqNE size p1 p2 | traceShow ("eqNE: ", p1, p2) False = undefined
-eqNE env (NVar i) (NVar j) = i == j
+eqNE :: Env Val -> Neutral -> Neutral -> Bool
+-- eqNE env p1 p2 | traceShow ("eqNE:", p1, p2) False = undefined
+eqNE env (NVar i ity ikeys) (NVar j jty jkeys) = i == j && all (uncurry keyeq) (zip ikeys jkeys)
+  where keyeq ik jk = eqNF env (VTiny, ik) (VTiny, jk)
 eqNE env (NApp f1 (Normal aty1 a1)) (NApp f2 (Normal aty2 a2)) =
   eqNE env f1 f2 && eqNF env (aty1, a1) (aty2, a2)
-eqNE env (NRootElim _ a1 c1) (NRootElim _ a2 c2) =
-  let var = makeVar env VTiny
-  in case (c1 $$ var, c2 $$ var) of
-    (VNeutral _ t1, VNeutral _ t2) -> eqNE (env `extVal` var) t1 t2
-    _ -> error "Closure didn't contain a neutral"
-eqNE _ _ _ = False
+eqNE env (NRootElim tb1) (NRootElim tb2) = eqNE (env `extVal` var) (tb1 ∙ lvl) (tb2 ∙ lvl)
+  where lvl = Lvl $ envFresh env
+        var = makeVarLvl lvl VTiny
+eqNE _ ne1 ne2 = False
 
--- conv :: Env -> Val -> Val -> Bool
--- conv env t u = case (t, u) of
---   (VU, VU) -> True
-
---   (VPi _ a b, VPi _ a' b') ->
---        conv env a a'
---     && conv (env + 1) (b $$ VVar l) (b' $$ VVar l)
-
---   (VLam _ t, VLam _ t') ->
---     conv (env + 1) (t $$ VVar l) (t' $$ VVar l)
-
---   (VLam _ t, u) ->
---     conv (env + 1) (t $$ VVar l) (VApp u (VVar l))
---   (u, VLam _ t) ->
---     conv (env + 1) (VApp u (VVar l)) (t $$ VVar l)
-
---   (VVar x  , VVar x'   ) -> x == x'
---   (VApp t u, VApp t' u') -> conv l t t' && conv l u u'
-
---   (VTiny, VTiny) -> True
-
---   _ -> False
-
--- Elaboration
---------------------------------------------------------------------------------
-
--- type of every variable in scope
-type Types = [Either LockName (Name, VTy)]
-
--- | Elaboration context.
-data Ctx = Ctx {env :: Env, types :: Types, lvl :: Lvl, pos :: SourcePos}
-   -- "unzipped" Ctx definition, for performance reason (also for convenience)
-  deriving (Show)
-
-names :: Ctx -> [String]
-names ctx = fmap (either id fst) (types ctx)
-
-emptyCtx :: SourcePos -> Ctx
-emptyCtx = Ctx (Env [] []) [] 0
-
--- | Extend Ctx with a bound variable.
-bind :: Name -> VTy -> Ctx -> Ctx
-bind x ~a (Ctx env types l pos) =
-  Ctx (env `extVal` makeVar env a) (Right (x, a):types) (l + 1) pos
-
-bindLock :: Name -> Ctx -> Ctx
-bindLock x (Ctx (Env vs keys) types l pos) =
-  Ctx (Env (EnvLock:vs) keys) (Left x:types) (l + 1) pos
-
--- | Extend Ctx with a definition.
-define :: Name -> Val -> VTy -> Ctx -> Ctx
-define x ~t ~a (Ctx env types l pos) =
-  Ctx (env `extVal` t) (Right (x, a):types) (l + 1) pos
+-- type checking
+------------------------------------------------------------
 
 -- | Typechecking monad. We annotate the error with the current source position.
 type M = Either (String, SourcePos)
 
+-- | Elaboration context.
+data Ctx = Ctx {env :: Env (Name, Val, VTy), pos :: SourcePos}
+  deriving (Show)
+-- names :: Ctx -> [String]
+-- names ctx = fmap (either id fst) (types ctx)
+
+emptyCtx :: SourcePos -> Ctx
+emptyCtx = Ctx (Env EnvEmpty 0 0)
+
+ctxVals :: Ctx -> Env Val
+ctxVals = fmap (\(_,x,_) -> x) . env
+
+ctxLength :: Ctx -> Int
+ctxLength = envLength . env
+
+define :: Name -> Val -> VTy -> Ctx -> Ctx
+define x v a (Ctx env pos) = Ctx (env `extVal` (x, v, a)) pos
+
+bind :: Name -> VTy -> Ctx -> Ctx
+bind x a ctx = define x (makeVar (env ctx) a) a ctx
+
+bindStuckLock :: Name -> Ctx -> Ctx
+bindStuckLock l (Ctx env pos) = Ctx (extStuck env) pos
+
 report :: Ctx -> String -> M a
 report ctx msg = Left (msg, pos ctx)
 
-showVal :: Ctx -> VTy -> Val -> String
-showVal ctx a v = prettyTm 0 (names ctx) (quote (env ctx) a v) []
-
--- bidirectional algorithm:
---   use check when the type is already known
---   use infer if the type is unknown
--- (original Hindley-Milner does not use bidirectionality)
--- (even if you don't strictly need bidir, it's faster and has better errors)
+-- showVal :: Ctx -> VTy -> Val -> String
+-- showVal ctx a v = prettyTm 0 (names ctx) (quote (env ctx) a v) []
 
 check :: Ctx -> Raw -> VTy -> M Tm
-check ctx t a = traceShow (ctx, t, a) $ case (t, a) of
-  -- setting the source pos
+check ctx t a = case (t, a) of
+-- check ctx t a = traceShow (t, a) $ case (t, a) of
+-- check ctx t a = traceShow (ctx, t, a) $ case (t, a) of
   (RSrcPos pos t, a) -> check (ctx {pos = pos}) t a
 
-  -- checking Lam with Pi type (canonical checking case)
-  -- (\x. t) : ((x : A) -> B)
   (RLam x t, VPi x' a b) ->
-    Lam x <$> check (bind x a ctx) t (b $$ makeVar (env ctx) a)
-              -- go under a binder as usual
+    Lam x <$> check (bind x a ctx) t (b ∙ makeVar (env ctx) a)
 
-  -- fall-through checking
-  (RLet x a t u, a') -> do     -- let x : a = t in u
+  (RLet x a t u, a') -> do
     a <- check ctx a VU
-    let ~va = eval (env ctx) a
-    t <- check ctx t va          -- (I need to check with a VTy)
-    let ~vt = eval (env ctx) t
+    let va = eval (ctxVals ctx) a
+    t <- check ctx t va
+    let vt = eval (ctxVals ctx) t
     u <- check (define x vt va ctx) u a'
     pure (Let x a t u)
 
-  (RRootIntro x t, VRoot x' a) -> RootIntro <$> check (bindLock x ctx) t (runLock a)
+  ---- New:
 
-  -- if the term is not checkable, we switch to infer (change of direction)
+  (RRootIntro x t, VRoot x' a)
+    -> RootIntro x <$> check (bindStuckLock x ctx) t (appRootClosureStuck a)
+
   _ -> do
     (t, tty) <- infer ctx t
-    unless (eqTy (env ctx) tty a) $
-     report ctx -- "type mismatch"
-        (printf
-            "type mismatch\n\nexpected type:\n\n  %s\n\ninferred type:\n\n  %s\n"
-            (showVal ctx VU a) (showVal ctx VU tty))
+    unless (eqTy (ctxVals ctx) tty a) $
+     report ctx ("type mismatch: " ++ show tty  ++ ", " ++ show a)
     pure t
 
 infer :: Ctx -> Raw -> M (Tm, VTy)
-infer ctx r = traceShow (ctx, r) $ case r of
+infer ctx r = case r of
+-- infer ctx r = traceShow r $ case r of
+-- infer ctx r = traceShow (ctx, r) $ case r of
   RSrcPos pos t -> infer (ctx {pos = pos}) t
-
-  RVar x -> do
-    let go i [] = report ctx ("variable out of scope: " ++ x)
-        go i (Left x' : tys) = go (i + 1) tys
-        go i (Right (x', a):tys)
-          | x == x'   = pure (Var i, a)
-          | otherwise = go (i + 1) tys
-    go 0 (types ctx)
 
   RU -> pure (U, VU)   -- U : U rule
 
@@ -471,7 +541,7 @@ infer ctx r = traceShow (ctx, r) $ case r of
     case tty of
       VPi _ a b -> do
         u <- check ctx u a
-        pure (App t u, b $$ eval (env ctx) u)
+        pure (App t u, b ∙ eval (ctxVals ctx) u)
       tty ->
         report ctx $ "Expected a function type, instead inferred:\n\n  " ++ "todo" -- showVal ctx tty
 
@@ -479,32 +549,49 @@ infer ctx r = traceShow (ctx, r) $ case r of
 
   RPi x a b -> do
     a <- check ctx a VU
-    b <- check (bind x (eval (env ctx) a) ctx) b VU
+    b <- check (bind x (eval (ctxVals ctx) a) ctx) b VU
     pure (Pi x a b, VU)
 
   RLet x a t u -> do
     a <- check ctx a VU
-    let ~va = eval (env ctx) a
+    let va = eval (ctxVals ctx) a
     t <- check ctx t va
-    let ~vt = eval (env ctx) t
+    let vt = eval (ctxVals ctx) t
     (u, uty) <- infer (define x vt va ctx) u
     pure (Let x a t u, uty)
+
+  ---- New:
+  RVar x rkeys -> do
+    let go i EnvEmpty _ = report ctx ("variable out of scope: " ++ x)
+        go i (EnvVal (x', v, ty) env) keys
+          | x == x'   = case keys of
+                          [] -> do
+                            keyst <- mapM (\key -> check ctx key VTiny) rkeys
+                            pure (Var i keyst, ty)
+                          _  -> report ctx ("too many keys provided: " ++ x)
+          | otherwise = go (i + 1) env keys
+        go i (EnvLock env) [] = report ctx ("not enough keys provided: " ++ x)
+        go i (EnvLock fenv) (key:keys) = do
+          keyt <- check ctx key VTiny
+          let keyv = eval (ctxVals ctx) keyt
+          go (i+1) (fenv keyv) keys
+    go 0 (envVars $ env ctx) rkeys
 
   RTiny -> pure (Tiny, VU)
 
   RRoot l a -> do
-    a <- check (bindLock l ctx) a VU
+    a <- check (bindStuckLock l ctx) a VU
     pure (Root l a, VU)
 
   RRootElim x t -> do
     (t, tty) <- infer (bind x VTiny ctx) t
     case tty of
-      VRoot _ a -> do
-        pure (RootElim x t, applyUnit a)
+      VRoot _ c -> do
+          pure (RootElim x t, c ↬ Lvl (ctxLength ctx))
       tty ->
         report ctx $ "Expected a root type, instead inferred:\n\n  " ++ "todo" -- showVal ctx tty
 
-  RRootIntro{} -> report ctx "Can't infer type for unapp expression"
+  RRootIntro{} -> report ctx "Can't infer type for rintro expression"
 
 -- printing
 --------------------------------------------------------------------------------
@@ -533,7 +620,11 @@ prettyTm prec = go prec where
 
   go :: Int -> [Name] -> Tm -> ShowS
   go p ns = \case
-    Var (Ix x)                -> ((ns !! x)++)
+    Var (Ix x) []             -> ((ns !! x)++)
+    Var (Ix x) keys           -> ((ns !! x)++) . ('[':) . goKeys keys . (']':) where
+                                   goKeys [] = id
+                                   goKeys [k] = go p ns k
+                                   goKeys (k:ks) = go p ns k . (", " ++) . goKeys ks
 
     App t u                   -> par p appp $ go appp ns t . (' ':) . go atomp ns u
 
@@ -558,16 +649,17 @@ prettyTm prec = go prec where
     Let (fresh ns -> x) a t u -> par p letp $ ("let "++) . (x++) . (" : "++) . go letp ns a
                                  . ("\n    = "++) . go letp ns t . ("\nin\n"++) . go letp (x:ns) u
 
-    Key u t -> par p pip $ ("key " ++) . go pip ns u . (" " ++) . go pip ns t
     Tiny                      -> ("T"++)
-    Root (fresh ns -> x) a -> par p pip $ ("√ " ++) . (x++) . (". "++) . go pip ns a
-    RootIntro t -> par p pip $ ("rintro " ++) . go pip ns t
+    Root (fresh ns -> x) a    -> par p pip $ ("√ " ++) . (x++) . (". "++) . go pip (x:ns) a
+    RootIntro (fresh ns -> x) t -> par p letp $ ("rintro " ++) . (x++) . (". "++) . go letp (x:ns) t
     RootElim (fresh ns -> x) t -> par p letp $ ("relim "++) . (x++) . (". "++) . go letp (x:ns) t
 
+-- deriving instance Show Tm
 instance Show Tm where showsPrec p = prettyTm p []
 
+
 -- parsing
---------------------------------------------------------------------------------
+------------------------------------------------------------
 
 type Parser = Parsec Void String
 
@@ -583,13 +675,14 @@ symbol s = lexeme (C.string s)
 char c   = lexeme (C.char c)
 parens p = char '(' *> p <* char ')'
 pArrow   = symbol "→" <|> symbol "->"
+pSurd    = symbol "√" <|> symbol "v/" -- TODO will v get mistaken for an ident?
 
 keyword :: String -> Bool
-keyword x = x == "let" || x == "in" || x == "λ" || x == "U" || x == "T" || x == "key" || x == "root" || x == "rintro" || x == "relim"
+keyword x = x == "let" || x == "in" || x == "λ" || x == "U" || x == "T" || x == "rintro" || x == "relim"
 
 pIdent :: Parser Name
 pIdent = try $ do
-  x <- takeWhile1P Nothing isAlphaNum
+  x <- (:) <$> C.letterChar <*> many (C.alphaNumChar <|> char '_') -- takeWhile1P Nothing isAlphaNum
   guard (not (keyword x))
   x <$ ws
 
@@ -598,9 +691,22 @@ pKeyword kw = do
   C.string kw
   (takeWhile1P Nothing isAlphaNum *> empty) <|> ws
 
+pKeyList :: Parser [Raw]
+pKeyList = do
+  symbol "["
+  keys <- sepBy pRaw (symbol ",")
+  symbol "]"
+  pure keys
+
+pVar :: Parser Raw
+pVar = do
+  i <- pIdent
+  keys <- fromMaybe [] <$> optional pKeyList
+  pure (RVar i keys)
+
 pAtom :: Parser Raw
 pAtom =
-      withPos ((RVar <$> pIdent) <|> (RKey <$ symbol "key" <*> pure "L" <*> pAtom <*> pAtom) <|> (RU <$ symbol "U") <|> (RTiny <$ symbol "T"))
+      withPos (pVar <|> (RU <$ symbol "U") <|> (RTiny <$ symbol "T"))
   <|> parens pRaw
 
 pBinder = pIdent <|> symbol "_"
@@ -613,20 +719,6 @@ pLam = do
   t <- pRaw
   pure (foldr RLam t xs)
 
-pRootIntro = do
-  symbol "rintro"
-  l <- pBinder
-  char '.'
-  t <- pRaw
-  pure (RRootIntro l t)
-
-pRootElim = do
-  symbol "relim"
-  xs <- some pBinder
-  char '.'
-  t <- pRaw
-  pure (foldr RRootElim t xs)
-
 pPi = do
   dom <- some (parens ((,) <$> some pBinder <*> (char ':' *> pRaw)))
   pArrow
@@ -634,10 +726,25 @@ pPi = do
   pure $ foldr (\(xs, a) t -> foldr (\x -> RPi x a) t xs) cod dom
 
 pRoot = do
-  symbol "root"
-  l <- pBinder
-  a <- pAtom
-  pure $ RRoot l a
+  pSurd
+  xs <- pBinder
+  char '.'
+  t <- pRaw
+  pure (RRoot xs t)
+
+pRootIntro = do
+  symbol "rintro"
+  xs <- pBinder
+  char '.'
+  t <- pRaw
+  pure (RRootIntro xs t)
+
+pRootElim = do
+  symbol "relim"
+  xs <- pBinder
+  char '.'
+  t <- pRaw
+  pure (RRootElim xs t)
 
 funOrSpine = do
   sp <- pSpine
@@ -652,11 +759,11 @@ pLet = do
   a <- pRaw
   symbol "="
   t <- pRaw
-  pKeyword "in"
+  symbol ";"
   u <- pRaw
   pure $ RLet x a t u
 
-pRaw = withPos (pLam <|> pRootElim <|> pRootIntro <|> pLet <|> pRoot <|> try pPi <|> funOrSpine)
+pRaw = withPos (pLam <|> pLet <|> pRoot <|> pRootIntro <|> pRootElim <|> try pPi <|> funOrSpine)
 pSrc = ws *> pRaw <* eof
 
 parseString :: String -> IO Raw
@@ -672,10 +779,16 @@ parseStdin :: IO (Raw, String)
 parseStdin = do
   file <- getContents
   tm   <- parseString file
-  pure (tm, file)
+  pure (tm, "(stdin)")
 
--- main
---------------------------------------------------------------------------------
+parseFile :: String -> IO (Raw, String)
+parseFile fn = do
+  file <- readFile fn
+  tm   <- parseString file
+  pure (tm, fn)
+
+-- -- main
+-- ------------------------------------------------------------
 
 displayError :: String -> (String, SourcePos) -> IO ()
 displayError file (msg, SourcePos path (unPos -> linum) (unPos -> colnum)) = do
@@ -687,35 +800,29 @@ displayError file (msg, SourcePos path (unPos -> linum) (unPos -> colnum)) = do
   printf "%s | %s\n" lpad (replicate (colnum - 1) ' ' ++ "^")
   printf "%s\n" msg
 
-helpMsg = unlines [
-  "usage: elabzoo-typecheck-closures-debruijn [--help|nf|type]",
-  "  --help : display this message",
-  "  nf     : read & typecheck expression from stdin, print its normal form and type",
-  "  type   : read & typecheck expression from stdin, print its type"]
-
 mainWith :: IO [String] -> IO (Raw, String) -> IO ()
 mainWith getOpt getRaw = do
   getOpt >>= \case
-    ["--help"] -> putStrLn helpMsg
     ["nf"]   -> do
       (t, file) <- getRaw
-      traceShow t $ return ()
       case infer (emptyCtx (initialPos file)) t of
         Left err -> displayError file err
         Right (t, a) -> do
-          print $ nf (Env [] []) a t
+          print $ nf emptyEnv a t
           putStrLn "  :"
-          print $ quote (Env [] []) VU a
+          print $ quote emptyEnv VU a
     ["type"] -> do
       (t, file) <- getRaw
       case infer (emptyCtx (initialPos file)) t of
         Left err     -> displayError file err
-        Right (t, a) -> print $ quote (Env [] []) VU a
-    _ -> putStrLn helpMsg
+        Right (t, a) -> print $ quote emptyEnv a VU
+    _ -> putStrLn "unknown option"
 
 main :: IO ()
 main = mainWith getArgs parseStdin
 
--- | Run main with inputs as function arguments.
 main' :: String -> String -> IO ()
 main' mode src = mainWith (pure [mode]) ((,src) <$> parseString src)
+
+mainFile :: String -> String -> IO ()
+mainFile mode fn = mainWith (pure [mode]) (parseFile fn)

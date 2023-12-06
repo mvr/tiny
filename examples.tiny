@@ -1,0 +1,63 @@
+let the : (A : U) -> A -> A
+    = \A a. a;
+
+let const : (A B : U) -> A -> B -> A
+          = \A B x y. x;
+
+let comp : (A : U) (B : U) (C : U)
+    -> (B -> C)
+    -> (A -> B)    
+    -> (A -> C)    
+  = \A B C f g x. f (g x);
+
+let iterated : T -> v/ L. (T -> T)
+    = \i. rintro L. (\j. i[i[i[i[j]]]]);
+
+let extract : (A : v/ L. U)
+    -> (v/ L. relim i. A[i]) 
+    -> relim i. A
+  = \A x. relim i. x;
+
+let duplicate : (A : v/ L. U)
+    -> (v/ L. relim i. A[i]) 
+    -> (v/ L. v/ K. relim i. A[i, i]) 
+  = \A r. rintro L. rintro K. relim i. r[i, i];
+
+let iterated : T -> v/ L. (T -> T)
+  = \i. rintro L. (\j. i[i[i[i[j]]]]);
+
+let func : (A : v/ L. U) (B : v/ L. U)
+    -> (v/ L. ((relim i. A[i]) -> (relim i. B[i]))) 
+    -> (v/ L. (relim i. A[i])) -> (v/ L. relim i. B[i])
+  = \A B f r. rintro L. (relim i. f[i]) (relim i. r[i]);
+
+let eta : (A : U)
+    -> A -> v/ L. ((i : T) -> A[i])
+  = \A x. rintro L. \i. x[i];
+
+let epsilon : (B : T -> v/ L. U)
+    -> ((t : T) -> v/ L. relim j. B[j] t[j])
+    -> relim j. B j
+  = \B f. relim i. f(i);
+
+let conj_left_nondep : (A : U) (B : v/ L. U)
+    -> (v/ L. ((t : T) -> A[t]) -> relim i. B[i])
+    -> (A -> v/ L. relim i. B[i])
+  = \A B g a. rintro L. (relim i. g[i]) (\j. a[j]);
+
+let conj_right_nondep : (A : U) (B : v/ L. U)
+    -> (A -> v/ L. relim i. B[i])
+    -> (v/ L. ((t : T) -> A[t]) -> relim i. B[i])
+  = \A B f. rintro L. \h. relim k. f[k] (h k);
+
+let conj_left : (A : U) (B : A -> v/ L. U)
+    -> (v/ L. (h : (t : T) -> A[t]) -> relim i. B[i] (h i))
+    -> ((a : A) -> v/ L. relim i. B[i] a[i])
+  = \A B g a. rintro L. (relim i. g[i]) (\j. a[j]);
+
+let conj_right : (A : U) (B : A -> v/ L. U)
+    -> ((a : A) -> v/ L. relim i. B[i] a[i])
+    -> (v/ L. ((h : (t : T) -> A[t]) -> relim i. B[i] (h i)))
+  = \A B f. rintro L. \h. relim k. f[k] (h k);
+
+conj_right
