@@ -439,6 +439,15 @@ quote env = \cases
   (VPi _ a b) (VLam x c)         -> Lam x (let var = makeVar env a in quote (env `extVal` var) (apply (1+envFresh env) b var) (apply (1+envFresh env) c var))
   (VPi x a b) f                  -> Lam x (let var = makeVar env a in quote (env `extVal` var) (apply (1+envFresh env) b var) (apply (1+envFresh env) f var))
 
+  (VSg _ a b) (VPair fst snd)    ->
+    let bty = apply (envFresh env) b fst
+    in Pair (quote env a fst) (quote env bty snd)
+  (VSg x a b) p                  ->
+    let fst = doFst p
+        bty = apply (envFresh env) b fst
+        snd = doSnd (envFresh env) p
+    in Pair (quote env a fst) (quote env bty snd)
+
   ---- New:
   -- (VRoot _ a) (VRootIntro l c)   -> RootIntro l (quote (extStuck env)
   --                                                      (appRootClosureStuck a)
