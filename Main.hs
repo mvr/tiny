@@ -31,15 +31,19 @@ type Name = String
 type LockName = String
 
 data Raw
-  = RVar Name [Raw]
+  = RU
+  | RLet Name Raw Raw Raw
+  | RPi Name Raw Raw
   | RLam Name Raw
   | RApp Raw Raw
-  | RU
-  | RPi Name Raw Raw
-  | RLet Name Raw Raw Raw
+  | RSg Name Raw Raw
+  | RPair Raw Raw
+  | RFst Raw
+  | RSnd Raw
   | RSrcPos SourcePos Raw -- source position for error reporting
 
   ---- New:
+  | RVar Name [Raw]
   | RTiny
   | RRoot LockName Raw
   | RRootIntro LockName Raw
@@ -52,11 +56,15 @@ data Raw
 type Ty = Tm
 
 data Tm
-  = Lam Name Tm
-  | App Tm Tm
-  | U
-  | Pi Name Ty Ty
+  = U
   | Let Name Ty Tm Tm
+  | Pi Name Ty Ty
+  | Lam Name Tm
+  | App Tm Tm
+  | Sg Name Ty Ty
+  | Pair Tm Tm
+  | Fst Tm
+  | Snd Tm
 
   ---- New:
   | Var Ix [Tm]
@@ -144,20 +152,22 @@ type VTy = Val
 
 data Val
   = VNeutral VTy Neutral
-  | VLam Name Closure
-  | VPi Name VTy Closure
   | VU
+  | VPi Name VTy Closure
+  | VLam Name Closure
+  | VSg Name VTy Closure
+  | VPair Val Val
   ---- New:
   | VTiny
   | VRoot LockName RootClosure
   | VRootIntro LockName RootClosure
-  -- ---- Debugging:
-  -- | VLockValue Int
   deriving (Show)
 
 data Neutral
   = NVar Lvl VTy [Val]
   | NApp Neutral Normal
+  | NFst Neutral
+  | NSnd Neutral
   ---- New:
   | NRootElim (BindTiny Neutral)
   deriving (Show)
@@ -211,9 +221,11 @@ instance (Keyable a, Keyable b, Keyable c) => Keyable (a, b, c) where
 instance Keyable Val where
   addKeys fr ks = \case
     VNeutral ty n -> VNeutral (addKeys fr ks ty) (addKeys fr ks n)
-    VLam x c -> VLam x (addKeys fr ks c)
-    VPi x a b -> VPi x (addKeys fr ks a) (addKeys fr ks b)
     VU -> VU
+    VPi x a b -> VPi x (addKeys fr ks a) (addKeys fr ks b)
+    VLam x c -> VLam x (addKeys fr ks c)
+    VSg x a b -> VSg x (addKeys fr ks a) (addKeys fr ks b)
+    VPair x y -> VPair (addKeys fr ks x) (addKeys fr ks y)
     VTiny -> VTiny
     VRoot l c -> VRoot l (addKeys fr ks c)
     VRootIntro l c -> VRootIntro l (addKeys fr ks c)
@@ -222,6 +234,8 @@ instance Keyable Neutral where
   addKeys fr ks = \case
     NVar lvl ty keys -> NVar lvl (addKeys fr ks ty) (ks ++ fmap (addKeys fr ks) keys)
     NApp f a -> NApp (addKeys fr ks f) (addKeys fr ks a)
+    NFst a -> NFst (addKeys fr ks a)
+    NSnd a -> NSnd (addKeys fr ks a)
     NRootElim (BindTiny l lvl n) -> undefined -- NRootElim (BindTiny l lvl (addKeys fr ks n))
 
 instance Keyable Normal where
@@ -251,9 +265,11 @@ class Substitutable a b | a -> b where
 instance Substitutable Val Val where
   sub fr v i = \case
     VNeutral ty n -> sub fr v i n
-    VLam x c -> VLam x (sub fr v i c)
-    VPi x a b -> VPi x (sub fr v i a) (sub fr v i b)
     VU -> VU
+    VPi x a b -> VPi x (sub fr v i a) (sub fr v i b)
+    VLam x c -> VLam x (sub fr v i c)
+    VSg x a b -> VSg x (sub fr v i a) (sub fr v i b)
+    VPair a b -> VPair (sub fr v i a) (sub fr v i b)
     VTiny -> VTiny
     VRoot l c -> VRoot l (sub fr v i c)
     VRootIntro l c -> VRootIntro l (sub fr v i c)
@@ -263,6 +279,8 @@ instance Substitutable Neutral Val where
     var@(NVar j ty ks) | i == j -> addKeys fr (fmap (sub fr v i) ks) v
                        | otherwise -> VNeutral subty (NVar j subty (fmap (sub fr v i) ks)) where subty = sub fr v i ty
     NApp f a -> sub fr v i f ∙ sub fr v i a
+    NFst a -> doFst (sub fr v i a)
+    NSnd b -> doSnd (sub fr v i b)
     NRootElim (BindTiny x lvl n) -> undefined -- sub fr v i (rename fresh lvl n) ↬ fresh
       where fresh = Lvl undefined
     -- TODO: what if v contains NVars with level larger than size? Need to freshen the binder past all those too
@@ -295,9 +313,11 @@ class Renameable a where
 instance Renameable Val where
   rename v i = \case
     VNeutral ty n -> VNeutral (rename v i ty) (rename v i n)
-    VLam x c -> VLam x (rename v i c)
-    VPi x a b -> VPi x (rename v i a) (rename v i b)
     VU -> VU
+    VPi x a b -> VPi x (rename v i a) (rename v i b)
+    VLam x c -> VLam x (rename v i c)
+    VSg x a b -> VSg x (rename v i a) (rename v i b)
+    VPair a b -> VPair (rename v i a) (rename v i b)
     VTiny -> VTiny
     VRoot l c -> VRoot l (rename v i c)
     VRootIntro l c -> VRootIntro l (rename v i c)
@@ -308,6 +328,8 @@ instance Renameable Neutral where
                  | otherwise -> NVar j (rename v i ty) (fmap (rename v i) ks)
     NApp f a -> NApp (rename v i f) (rename v i a)
     NRootElim bt -> NRootElim (rename v i bt)
+    NFst a -> NFst (rename v i a)
+    NSnd a -> NSnd (rename v i a)
 
 instance Renameable Normal where
   rename v i (Normal ty a) = Normal (rename v i ty) (rename v i a)
@@ -345,6 +367,17 @@ doApp t u = error $ "Unexpected in App: " ++ show t ++ " applied to " ++ show u
 instance Apply Val Val Val where
   (∙) = doApp
 
+doFst :: Val -> Val
+doFst (VPair a b) = a
+doFst (VNeutral (VSg x aty _) ne) = VNeutral aty (NFst ne)
+doFst t = error $ "Unexpected in Fst: " ++ show t
+
+doSnd :: Val -> Val
+doSnd (VPair a b) = b
+doSnd p@(VNeutral (VSg x aty bclo) ne) =
+  let a = doFst p in VNeutral (bclo ∙ a) (NSnd ne)
+doSnd t = error $ "Unexpected in Snd: " ++ show t
+
 doRootElim :: Val -> Lvl -> Val
 doRootElim (VRootIntro l c) lvl = c ↬ lvl
 doRootElim (VNeutral (VRoot l c) ne) lvl = VNeutral (c ↬ lvl) (NRootElim (BindTiny "geni" lvl ne))
@@ -369,11 +402,17 @@ envLookup env i keys = go i keys env
 eval :: Env Val -> Tm -> Val
 -- eval env t = traceShow (env, t) $ case t of
 eval env t = case t of
+  U                           -> VU
+  Let x _ t u                 -> eval (env `extVal` eval env t) u
+
+  Pi x a b                    -> VPi x (eval env a) (Closure env b)
   Lam x t                     -> VLam x (Closure env t)
   App t u                     -> eval env t ∙ eval env u
-  Pi x a b                    -> VPi x (eval env a) (Closure env b)
-  Let x _ t u                 -> eval (env `extVal` eval env t) u
-  U                           -> VU
+
+  Sg x a b                    -> VSg x (eval env a) (Closure env b)
+  Pair a b                    -> VPair (eval env a) (eval env b)
+  Fst a                       -> doFst (eval env a)
+  Snd a                       -> doSnd (eval env a)
 
   ---- New:
   Var x keys                  -> envLookup (envVars env) x (fmap (eval env) keys)
@@ -388,6 +427,7 @@ quoteType env = \case
   (VNeutral _ ne)              -> quoteNeutral env ne
   VU                           -> U
   VPi x a b                    -> Pi x (quoteType env a) (let var = makeVar env a in quoteType (env `extVal` var) (b ∙ var))
+  VSg x a b                    -> Sg x (quoteType env a) (let var = makeVar env a in quoteType (env `extVal` var) (b ∙ var))
 
   ---- New:
   VTiny                        -> Tiny
@@ -420,6 +460,8 @@ quote env = \cases
 quoteNeutral :: Env Val -> Neutral -> Tm
 quoteNeutral env (NVar x ty keys) = Var (lvl2Ix env x) (fmap (quote env VTiny) keys)
 quoteNeutral env (NApp f (Normal aty a)) = App (quoteNeutral env f) (quote env aty a)
+quoteNeutral env (NFst a) = Fst (quoteNeutral env a)
+quoteNeutral env (NSnd a) = Snd (quoteNeutral env a)
 quoteNeutral env (NRootElim bt@(BindTiny l lvl r)) = RootElim l (let lvl = Lvl $ envFresh env in quoteNeutral (env `extVal` makeVarLvl lvl VTiny) (bt ∙ lvl))
 
 nf :: Env Val -> VTy -> Tm -> Tm
@@ -436,6 +478,10 @@ eqTy env (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) =
   let var = makeVar env aty1
    in eqTy env aty1 aty2
         && eqTy (env `extVal` var) (bclo1 ∙ var) (bclo2 ∙ var)
+eqTy env (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) =
+  let var = makeVar env aty1
+   in eqTy env aty1 aty2
+        && eqTy (env `extVal` var) (bclo1 ∙ var) (bclo2 ∙ var)
 eqTy env VTiny VTiny = True
 eqTy env (VRoot _ a) (VRoot _ a') = eqTy (extStuck env) (appRootClosureStuck a) (appRootClosureStuck a')
 eqTy _ _ _ = False
@@ -446,6 +492,11 @@ eqNF env (VU, ty1) (VU, ty2) = eqTy env ty1 ty2
 eqNF env (VPi _ aty1 bclo1, f1) (VPi _ aty2 bclo2, f2) =
   let var = makeVar env aty1
    in eqNF (env `extVal` var) (bclo1 ∙ var, f1 ∙ var) (bclo2 ∙ var, f2 ∙ var)
+eqNF env (VSg _ aty1 bclo1, p1) (VSg _ aty2 bclo2, p2) =
+  let a1 = doFst p1
+      a2 = doFst p2
+  in eqNF env (aty1, a1) (aty2, a2) &&
+     eqNF env (bclo1 ∙ a1, doSnd p1) (bclo2 ∙ a2, doSnd p2)
 eqNF env (VRoot _ a1, r1) (VRoot _ a2, r2) =
   eqNF (extStuck env)
        (appRootClosureStuck a1, doRootElimEta env r1)
@@ -459,6 +510,8 @@ eqNE env (NVar i ity ikeys) (NVar j jty jkeys) = i == j && all (uncurry keyeq) (
   where keyeq ik jk = eqNF env (VTiny, ik) (VTiny, jk)
 eqNE env (NApp f1 (Normal aty1 a1)) (NApp f2 (Normal aty2 a2)) =
   eqNE env f1 f2 && eqNF env (aty1, a1) (aty2, a2)
+eqNE env (NFst p1) (NFst p2) = eqNE env p1 p2
+eqNE env (NSnd p1) (NSnd p2) = eqNE env p1 p2
 eqNE env (NRootElim tb1) (NRootElim tb2) = eqNE (env `extVal` var) (tb1 ∙ lvl) (tb2 ∙ lvl)
   where lvl = Lvl $ envFresh env
         var = makeVarLvl lvl VTiny
@@ -506,9 +559,6 @@ check ctx t a = case (t, a) of
 -- check ctx t a = traceShow (ctx, t, a) $ case (t, a) of
   (RSrcPos pos t, a) -> check (ctx {pos = pos}) t a
 
-  (RLam x t, VPi x' a b) ->
-    Lam x <$> check (bind x a ctx) t (b ∙ makeVar (env ctx) a)
-
   (RLet x a t u, a') -> do
     a <- check ctx a VU
     let va = eval (ctxVals ctx) a
@@ -516,6 +566,14 @@ check ctx t a = case (t, a) of
     let vt = eval (ctxVals ctx) t
     u <- check (define x vt va ctx) u a'
     pure (Let x a t u)
+
+  (RLam x t, VPi x' a b) ->
+    Lam x <$> check (bind x a ctx) t (b ∙ makeVar (env ctx) a)
+
+  (RPair a b, VSg x aty bty) -> do
+    a <- check ctx a aty
+    b <- check ctx b (bty ∙ (eval (ctxVals ctx) a))
+    pure (Pair a b)
 
   ---- New:
 
@@ -536,6 +594,19 @@ infer ctx r = case r of
 
   RU -> pure (U, VU)   -- U : U rule
 
+  RLet x a t u -> do
+    a <- check ctx a VU
+    let va = eval (ctxVals ctx) a
+    t <- check ctx t va
+    let vt = eval (ctxVals ctx) t
+    (u, uty) <- infer (define x vt va ctx) u
+    pure (Let x a t u, uty)
+
+  RPi x a b -> do
+    a <- check ctx a VU
+    b <- check (bind x (eval (ctxVals ctx) a) ctx) b VU
+    pure (Pi x a b, VU)
+
   RApp t u -> do
     (t, tty) <- infer ctx t
     case tty of
@@ -547,18 +618,24 @@ infer ctx r = case r of
 
   RLam{} -> report ctx "Can't infer type for lambda expression"
 
-  RPi x a b -> do
+  RSg x a b -> do
     a <- check ctx a VU
     b <- check (bind x (eval (ctxVals ctx) a) ctx) b VU
-    pure (Pi x a b, VU)
+    pure (Sg x a b, VU)
 
-  RLet x a t u -> do
-    a <- check ctx a VU
-    let va = eval (ctxVals ctx) a
-    t <- check ctx t va
-    let vt = eval (ctxVals ctx) t
-    (u, uty) <- infer (define x vt va ctx) u
-    pure (Let x a t u, uty)
+  RPair{} -> report ctx "Can't infer type for pair"
+
+  RFst p -> do
+    (t, ty) <- infer ctx p
+    case ty of
+      VSg x a b -> pure (Fst t, a)
+      _ -> report ctx $ "expected Sg type"
+
+  RSnd p -> do
+    (t, ty) <- infer ctx p
+    case ty of
+      VSg x a b -> pure (Snd t, b ∙ eval (ctxVals ctx) (Fst t))
+      _ -> report ctx $ "expected Sg type"
 
   ---- New:
   RVar x rkeys -> do
@@ -620,21 +697,10 @@ prettyTm prec = go prec where
 
   go :: Int -> [Name] -> Tm -> ShowS
   go p ns = \case
-    Var (Ix x) []             -> ((ns !! x)++)
-    Var (Ix x) keys           -> ((ns !! x)++) . ('[':) . goKeys keys . (']':) where
-                                   goKeys [] = id
-                                   goKeys [k] = go p ns k
-                                   goKeys (k:ks) = go p ns k . (", " ++) . goKeys ks
-
-    App t u                   -> par p appp $ go appp ns t . (' ':) . go atomp ns u
-
-    Lam (fresh ns -> x) t     -> par p letp $ ("λ "++) . (x++) . goLam (x:ns) t where
-                                   goLam ns (Lam (fresh ns -> x) t) =
-                                     (' ':) . (x++) . goLam (x:ns) t
-                                   goLam ns t =
-                                     (". "++) . go letp ns t
-
     U                         -> ("U"++)
+
+    Let (fresh ns -> x) a t u -> par p letp $ ("let "++) . (x++) . (" : "++) . go letp ns a
+                                 . ("\n    = "++) . go letp ns t . ("\nin\n"++) . go letp (x:ns) u
 
     Pi "_" a b                -> par p pip $ go appp ns a . (" → "++) . go pip ("_":ns) b
 
@@ -646,8 +712,33 @@ prettyTm prec = go prec where
                                    goPi ns b =
                                      (" → "++) . go pip ns b
 
-    Let (fresh ns -> x) a t u -> par p letp $ ("let "++) . (x++) . (" : "++) . go letp ns a
-                                 . ("\n    = "++) . go letp ns t . ("\nin\n"++) . go letp (x:ns) u
+    Lam (fresh ns -> x) t     -> par p letp $ ("λ "++) . (x++) . goLam (x:ns) t where
+                                   goLam ns (Lam (fresh ns -> x) t) =
+                                     (' ':) . (x++) . goLam (x:ns) t
+                                   goLam ns t =
+                                     (". "++) . go letp ns t
+
+    App t u                   -> par p appp $ go appp ns t . (' ':) . go atomp ns u
+
+    Sg "_" a b                -> par p pip $ go appp ns a . (" × "++) . go pip ("_":ns) b
+
+    Sg (fresh ns -> x) a b    -> par p pip $ piBind ns x a . goSg (x:ns) b where
+                                   goSg ns (Sg "_" a b) =
+                                     (" × "++) . go appp ns a . (" × "++) . go pip ("_":ns) b
+                                   goSg ns (Sg (fresh ns -> x) a b) =
+                                     piBind ns x a . goSg (x:ns) b
+                                   goSg ns b =
+                                     (" × "++) . go pip ns b
+
+    Pair a b                  -> ("<" ++) . go letp ns a . (", " ++) . go letp ns b . (">" ++)
+    Fst a                     -> par p letp $ ("fst " ++) . go letp ns a
+    Snd a                     -> par p letp $ ("snd " ++) . go letp ns a
+
+    Var (Ix x) []             -> ((ns !! x)++)
+    Var (Ix x) keys           -> ((ns !! x)++) . ('[':) . goKeys keys . (']':) where
+                                   goKeys [] = id
+                                   goKeys [k] = go p ns k
+                                   goKeys (k:ks) = go p ns k . (", " ++) . goKeys ks
 
     Tiny                      -> ("T"++)
     Root (fresh ns -> x) a    -> par p pip $ ("√ " ++) . (x++) . (". "++) . go pip (x:ns) a
@@ -675,10 +766,11 @@ symbol s = lexeme (C.string s)
 char c   = lexeme (C.char c)
 parens p = char '(' *> p <* char ')'
 pArrow   = symbol "→" <|> symbol "->"
+pTimes   = symbol "×" <|> symbol "*"
 pSurd    = symbol "√" <|> symbol "v/" -- TODO will v get mistaken for an ident?
 
 keyword :: String -> Bool
-keyword x = x == "let" || x == "in" || x == "λ" || x == "U" || x == "T" || x == "rintro" || x == "relim"
+keyword x = x == "let" || x == "in" || x == "λ" || x == "U" || x == "T" || x == "rintro" || x == "relim" || x == "fst" || x == "snd"
 
 pIdent :: Parser Name
 pIdent = try $ do
@@ -712,6 +804,12 @@ pAtom =
 pBinder = pIdent <|> symbol "_"
 pSpine  = foldl1 RApp <$> some pAtom
 
+pPi = do
+  dom <- some (parens ((,) <$> some pBinder <*> (char ':' *> pRaw)))
+  pArrow
+  cod <- pRaw
+  pure $ foldr (\(xs, a) t -> foldr (\x -> RPi x a) t xs) cod dom
+
 pLam = do
   char 'λ' <|> char '\\'
   xs <- some pBinder
@@ -719,11 +817,29 @@ pLam = do
   t <- pRaw
   pure (foldr RLam t xs)
 
-pPi = do
+pSg = do
   dom <- some (parens ((,) <$> some pBinder <*> (char ':' *> pRaw)))
-  pArrow
+  pTimes
   cod <- pRaw
-  pure $ foldr (\(xs, a) t -> foldr (\x -> RPi x a) t xs) cod dom
+  pure $ foldr (\(xs, a) t -> foldr (\x -> RSg x a) t xs) cod dom
+
+pPair = do
+  symbol "<"
+  a <- pRaw
+  symbol ","
+  b <- pRaw
+  symbol ">"
+  return (RPair a b)
+
+pFst = do
+  symbol "fst"
+  t <- pRaw
+  pure (RFst t)
+
+pSnd = do
+  symbol "snd"
+  t <- pRaw
+  pure (RSnd t)
 
 pRoot = do
   pSurd
@@ -749,7 +865,9 @@ pRootElim = do
 funOrSpine = do
   sp <- pSpine
   optional pArrow >>= \case
-    Nothing -> pure sp
+    Nothing -> optional pTimes >>= \case
+      Nothing -> pure sp
+      Just _  -> RSg "_" sp <$> pRaw
     Just _  -> RPi "_" sp <$> pRaw
 
 pLet = do
@@ -763,7 +881,7 @@ pLet = do
   u <- pRaw
   pure $ RLet x a t u
 
-pRaw = withPos (pLam <|> pLet <|> pRoot <|> pRootIntro <|> pRootElim <|> try pPi <|> funOrSpine)
+pRaw = withPos (pLam <|> pPair <|> pFst <|> pSnd <|> pLet <|> pRoot <|> pRootIntro <|> pRootElim <|> try pPi <|> try pSg <|> funOrSpine)
 pSrc = ws *> pRaw <* eof
 
 parseString :: String -> IO Raw
