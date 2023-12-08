@@ -180,10 +180,10 @@ instance Apply Closure Val Val where
     let newEnv = (extVal cloenv u) { envFresh = max (envFresh cloenv) fr } in
       eval newEnv t
 
-instance (Show a, Renameable a) => Apply (BindTiny a) Lvl a where
+instance (Renameable a) => Apply (BindTiny a) Lvl a where
   apply fr (BindTiny l i a) j
     | i == j    = a
-    | otherwise = rename j i a
+    | otherwise = rename fr j i a
 
 class CoApply a b c | a -> b c where
   coapply :: Lvl -> a -> b -> c
@@ -235,7 +235,7 @@ instance Keyable Neutral where
     NApp f a -> NApp (addKeys fr ks f) (addKeys fr ks a)
     NFst a -> NFst (addKeys fr ks a)
     NSnd a -> NSnd (addKeys fr ks a)
-    NRootElim (BindTiny l lvl n) -> undefined -- NRootElim (BindTiny l lvl (addKeys fr ks n))
+    NRootElim bt -> NRootElim (addKeys fr ks bt)
 
 instance Keyable Normal where
   addKeys fr ks (Normal ty a) = Normal (addKeys fr ks ty) (addKeys fr ks a)
@@ -246,13 +246,16 @@ instance Keyable Closure where
 instance Keyable RootClosure where
   addKeys fr ks (RootClosure env t) = RootClosure (addKeys fr ks env) t
 
+instance (Keyable a, Renameable a) => Keyable (BindTiny a) where
+  addKeys fr ks bt@(BindTiny l lvl n) = BindTiny l fr (addKeys (fr+1) ks (apply (fr+1) bt fr))
+
 instance Keyable v => Keyable (EnvVars v) where
   addKeys fr ks EnvEmpty = EnvEmpty
   addKeys fr ks (EnvVal v env) = EnvVal (addKeys fr ks v) (addKeys fr ks env)
   addKeys fr ks (EnvLock f) = EnvLock (addKeys fr ks . f)
 
 instance Keyable v => Keyable (Env v) where
-  addKeys fr ks env = env { envFresh = max (envFresh env) (coerce fr),
+  addKeys fr ks env = env { envFresh = max (envFresh env) fr,
                             envVars = addKeys fr ks (envVars env) }
 
 -- Substitutes a value for a variable
@@ -280,9 +283,8 @@ instance Substitutable Neutral Val where
     NApp f a -> apply fr (sub fr v i f) (sub fr v i a)
     NFst a -> doFst (sub fr v i a)
     NSnd b -> doSnd fr (sub fr v i b)
-    NRootElim (BindTiny x lvl n) -> undefined -- sub fr v i (rename fresh lvl n) ↬ fresh
-      where fresh = Lvl undefined
-    -- TODO: what if v contains NVars with level larger than size? Need to freshen the binder past all those too
+    NRootElim bt -> doRootElim (fr+1) (sub (fr+1) v i freshened) fr
+      where freshened = apply (fr+1) bt fr
 
 instance Substitutable Normal Val where
   sub fr v i (Normal ty a) = sub fr v i a
@@ -293,6 +295,9 @@ instance Substitutable Closure Closure where
 instance Substitutable RootClosure RootClosure where
   sub fr v i (RootClosure env t) = RootClosure (sub fr v i env) t
 
+instance Substitutable (BindTiny Neutral) (BindTiny Val) where
+  sub fr v i bt@(BindTiny l lvl n) = BindTiny l fr (sub (fr+1) v i (apply (fr+1) bt fr))
+
 -- instance Substitutable v v' => Substitutable (Env v) (Env v') where
 instance Substitutable (EnvVars Val) (EnvVars Val) where
   sub fr v i EnvEmpty = EnvEmpty
@@ -300,59 +305,59 @@ instance Substitutable (EnvVars Val) (EnvVars Val) where
   sub fr v i (EnvLock f) = EnvLock (sub fr v i . f)
 
 instance Substitutable (Env Val) (Env Val) where
-  sub fr v i env = env { envFresh = max (envFresh env) (coerce fr),
+  sub fr v i env = env { envFresh = max (envFresh env) fr,
                          envVars  = sub fr v i (envVars env) }
 
 -- Switch one de Bruijn level for another
 -- The variables have the same types,
 -- so this cannot cause reduction
 class Renameable a where
-  rename :: Lvl -> Lvl -> a -> a
+  rename :: Lvl -> Lvl -> Lvl -> a -> a
 
 instance Renameable Val where
-  rename v i = \case
-    VNeutral ty n -> VNeutral (rename v i ty) (rename v i n)
+  rename fr v i = \case
+    VNeutral ty n -> VNeutral (rename fr v i ty) (rename fr v i n)
     VU -> VU
-    VPi x a b -> VPi x (rename v i a) (rename v i b)
-    VLam x c -> VLam x (rename v i c)
-    VSg x a b -> VSg x (rename v i a) (rename v i b)
-    VPair a b -> VPair (rename v i a) (rename v i b)
+    VPi x a b -> VPi x (rename fr v i a) (rename fr v i b)
+    VLam x c -> VLam x (rename fr v i c)
+    VSg x a b -> VSg x (rename fr v i a) (rename fr v i b)
+    VPair a b -> VPair (rename fr v i a) (rename fr v i b)
     VTiny -> VTiny
-    VRoot l c -> VRoot l (rename v i c)
-    VRootIntro l c -> VRootIntro l (rename v i c)
+    VRoot l c -> VRoot l (rename fr v i c)
+    VRootIntro l c -> VRootIntro l (rename fr v i c)
 
 instance Renameable Neutral where
-  rename v i = \case
-    NVar j ty ks | i == j -> NVar v (rename v i ty) (fmap (rename v i) ks)
-                 | otherwise -> NVar j (rename v i ty) (fmap (rename v i) ks)
-    NApp f a -> NApp (rename v i f) (rename v i a)
-    NRootElim bt -> NRootElim (rename v i bt)
-    NFst a -> NFst (rename v i a)
-    NSnd a -> NSnd (rename v i a)
+  rename fr v i = \case
+    NVar j ty ks | i == j -> NVar v (rename fr v i ty) (fmap (rename fr v i) ks)
+                 | otherwise -> NVar j (rename fr v i ty) (fmap (rename fr v i) ks)
+    NApp f a -> NApp (rename fr v i f) (rename fr v i a)
+    NFst a -> NFst (rename fr v i a)
+    NSnd a -> NSnd (rename fr v i a)
+    NRootElim bt -> NRootElim (rename fr v i bt)
 
 instance Renameable Normal where
-  rename v i (Normal ty a) = Normal (rename v i ty) (rename v i a)
+  rename fr v i (Normal ty a) = Normal (rename fr v i ty) (rename fr v i a)
 
 instance Renameable Closure where
-  rename v i (Closure env t) = Closure (rename v i env) t
+  rename fr v i (Closure env t) = Closure (rename fr v i env) t
 
 instance Renameable RootClosure where
-  rename v i (RootClosure env t) = RootClosure (rename v i env) t
+  rename fr v i (RootClosure env t) = RootClosure (rename fr v i env) t
 
 instance Renameable a => Renameable (BindTiny a) where
-  rename v i (BindTiny l j a) = undefined
-    -- | v == j = BindTiny l j (rename v i a) -- TODO: freshen
-    -- | otherwise = BindTiny l j (rename v i a)
+  rename fr v i bt@(BindTiny l j a)
+    | v == j = BindTiny l fr (rename (fr+1) v i (apply (fr+1) bt fr))
+    | otherwise = BindTiny l j (rename fr v i a)
 
 instance Renameable v => Renameable (EnvVars v) where
-  rename v i EnvEmpty = EnvEmpty
-  rename v i (EnvVal e env) = EnvVal (rename v i e) (rename v i env)
-  rename v i (EnvLock f) = EnvLock (rename v i . f)
+  rename fr v i EnvEmpty = EnvEmpty
+  rename fr v i (EnvVal e env) = EnvVal (rename fr v i e) (rename fr v i env)
+  rename fr v i (EnvLock f) = EnvLock (rename fr v i . f)
 
 instance Renameable (Env Val) where
-  rename v i env = env {
-    envFresh = max (envFresh env) (1 + coerce v),
-    envVars = rename v i (envVars env)
+  rename fr v i env = env {
+    envFresh = max (envFresh env) fr,
+    envVars = rename fr v i (envVars env)
     }
 
 -- evaluation
