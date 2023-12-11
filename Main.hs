@@ -48,6 +48,11 @@ data Raw
   | RRoot LockName Raw
   | RRootIntro LockName Raw
   | RRootElim Name Raw
+
+  ---- Cubical:
+  | RTiny0 | RTiny1
+  | RPath Raw Raw
+  -- RLam and RApp are reused for paths
   deriving (Show)
 
 -- core syntax
@@ -73,6 +78,12 @@ data Tm
   | Root LockName Ty
   | RootIntro LockName Tm
   | RootElim Name Tm
+
+  ---- Cubical:
+  | Tiny0 | Tiny1
+  | Path Name Ty Tm Tm
+  | PLam Name Tm Tm Tm
+  | PApp Tm Tm Tm Tm
 
 -- values
 ------------------------------------------------------------
@@ -154,10 +165,16 @@ data Val
   | VLam Name Closure
   | VSg Name VTy Closure
   | VPair Val Val
+
   ---- New:
   | VTiny
   | VRoot LockName RootClosure
   | VRootIntro LockName RootClosure
+
+  ---- Cubical:
+  | VTiny0 | VTiny1
+  | VPath Name Closure {-a0-} Val {-a1-} Val
+  | VPLam Name Closure {-a0-} Val {-a1-} Val
   deriving (Show)
 
 data Neutral
@@ -165,8 +182,12 @@ data Neutral
   | NApp Neutral Normal
   | NFst Neutral
   | NSnd Neutral
+
   ---- New:
   | NRootElim (BindTiny Neutral)
+
+  ---- Cubical:
+  | NPApp {-p-} Neutral {-t-} Val {-a0-} Val {-a1-} Val
   deriving (Show)
 
 data Normal = Normal {nfTy :: VTy, nfTerm :: Val}
@@ -228,6 +249,10 @@ instance Keyable Val where
     VTiny -> VTiny
     VRoot l c -> VRoot l (addKeys fr ks c)
     VRootIntro l c -> VRootIntro l (addKeys fr ks c)
+    VTiny0 -> VTiny0
+    VTiny1 -> VTiny1
+    VPath l c a0 a1 -> VPath l (addKeys fr ks c) (addKeys fr ks a0) (addKeys fr ks a1)
+    VPLam l c a0 a1 -> VPLam l (addKeys fr ks c) (addKeys fr ks a0) (addKeys fr ks a1)
 
 instance Keyable Neutral where
   addKeys fr ks = \case
@@ -236,6 +261,7 @@ instance Keyable Neutral where
     NFst a -> NFst (addKeys fr ks a)
     NSnd a -> NSnd (addKeys fr ks a)
     NRootElim bt -> NRootElim (addKeys fr ks bt)
+    NPApp p i a0 a1 -> NPApp (addKeys fr ks p) (addKeys fr ks i) (addKeys fr ks a0) (addKeys fr ks a1)
 
 instance Keyable Normal where
   addKeys fr ks (Normal ty a) = Normal (addKeys fr ks ty) (addKeys fr ks a)
@@ -275,6 +301,10 @@ instance Substitutable Val Val where
     VTiny -> VTiny
     VRoot l c -> VRoot l (sub fr v i c)
     VRootIntro l c -> VRootIntro l (sub fr v i c)
+    VTiny0 -> VTiny0
+    VTiny1 -> VTiny1
+    VPath l c a0 a1 -> VPath l (sub fr v i c) (sub fr v i a0) (sub fr v i a1)
+    VPLam l c a0 a1 -> VPLam l (sub fr v i c) (sub fr v i a0) (sub fr v i a1)
 
 instance Substitutable Neutral Val where
   sub fr v i = \case
@@ -285,6 +315,7 @@ instance Substitutable Neutral Val where
     NSnd b -> doSnd fr (sub fr v i b)
     NRootElim bt -> doRootElim (fr+1) (sub (fr+1) v i freshened) fr
       where freshened = apply (fr+1) bt fr
+    NPApp p t a0 a1 -> doPApp fr (sub fr v i p) (sub fr v i t) (sub fr v i a0) (sub fr v i a1)
 
 instance Substitutable Normal Val where
   sub fr v i (Normal ty a) = sub fr v i a
@@ -325,6 +356,10 @@ instance Renameable Val where
     VTiny -> VTiny
     VRoot l c -> VRoot l (rename fr v i c)
     VRootIntro l c -> VRootIntro l (rename fr v i c)
+    VTiny0 -> VTiny0
+    VTiny1 -> VTiny1
+    VPath l c a0 a1 -> VPath l (rename fr v i c) (rename fr v i a0) (rename fr v i a1)
+    VPLam l c a0 a1 -> VPLam l (rename fr v i c) (rename fr v i a0) (rename fr v i a1)
 
 instance Renameable Neutral where
   rename fr v i = \case
@@ -334,6 +369,7 @@ instance Renameable Neutral where
     NFst a -> NFst (rename fr v i a)
     NSnd a -> NSnd (rename fr v i a)
     NRootElim bt -> NRootElim (rename fr v i bt)
+    NPApp p i' a0 a1 -> NPApp (rename fr v i p) (rename fr v i i') (rename fr v i a0) (rename fr v i a1)
 
 instance Renameable Normal where
   rename fr v i (Normal ty a) = Normal (rename fr v i ty) (rename fr v i a)
@@ -395,6 +431,13 @@ doRootElimEta env r =
   let lvl = envFresh env
   in doRootElim (lvl + 1) (addKey (lvl+1) (makeVarLvl lvl VTiny) r) lvl
 
+doPApp :: Lvl -> Val -> Val -> Val -> Val -> Val
+doPApp fr p VTiny0 a0 a1 = a0
+doPApp fr p VTiny1 a0 a1 = a1
+doPApp fr (VPLam x c _ _) t a0 a1 = apply fr c t
+doPApp fr (VNeutral (VPath x c _ _) ne) t a0 a1 = VNeutral (apply fr c t) (NPApp ne t a0 a1)
+doPApp fr v _ _ _ = error $ "Unexpected in papp: " ++ show v
+
 envLookup :: EnvVars v -> Ix -> [Val] -> v
 envLookup env i keys = go i keys env
   where go 0 keys (EnvVal v envtail) = v
@@ -425,6 +468,11 @@ eval env t = case t of
   RootIntro l t               -> VRootIntro l (RootClosure env t)
   RootElim x t                -> let lvl = envFresh env in coapply (1+lvl) (eval (env `extVal` makeVarLvl lvl VTiny) t) lvl
 
+  Tiny0 -> VTiny0
+  Tiny1 -> VTiny1
+  Path x a a0 a1 -> VPath x (Closure env a) (eval env a0) (eval env a1)
+  PLam x a a0 a1 -> VPLam x (Closure env a) (eval env a0) (eval env a1)
+  PApp p t a0 a1 -> doPApp (envFresh env) (eval env p) (eval env t) (eval env a0) (eval env a1)
 
 quoteType :: Env Val -> VTy -> Tm
 quoteType env = \case
@@ -436,6 +484,9 @@ quoteType env = \case
   ---- New:
   VTiny                        -> Tiny
   VRoot l a                    -> Root l (quoteType (extStuck env) (appRootClosureStuck a))
+
+  VPath x a a0 a1              -> Path x (let var = makeVar env VTiny in quoteType (env `extVal` var) (apply (1+envFresh env) a var))
+                                  (quote env (apply (envFresh env) a VTiny0) a0) (quote env (apply (envFresh env) a VTiny1) a1)
   t                            -> error ("type expected, got " ++ show t)
 
 quote :: Env Val -> VTy -> Val -> Tm
@@ -461,6 +512,13 @@ quote env = \cases
                                                        (appRootClosureStuck a)
                                                        (doRootElimEta env r))
 
+  (VPath x c a0 a1) p            ->
+     let a0ty = apply (envFresh env) c VTiny0
+         a1ty = apply (envFresh env) c VTiny1
+         var = makeVar env VTiny
+     in Path x (quote (env `extVal` var) (apply (1+envFresh env) c var) (doPApp (1+envFresh env) p var a0 a1))
+        (quote env a0ty a0) (quote env a1ty a1)
+
   -- For debugging
   ty (VNeutral tyne ne)          -> if not (eqTy env ty tyne) then
                                       error $ "neutral type mismatch: " ++ show ty  ++ ", " ++ show tyne
@@ -476,6 +534,7 @@ quoteNeutral env (NApp f (Normal aty a)) = App (quoteNeutral env f) (quote env a
 quoteNeutral env (NFst a) = Fst (quoteNeutral env a)
 quoteNeutral env (NSnd a) = Snd (quoteNeutral env a)
 quoteNeutral env (NRootElim bt@(BindTiny l lvl r)) = RootElim l (let lvl = envFresh env in quoteNeutral (env `extVal` makeVarLvl lvl VTiny) (apply (1+lvl) bt lvl))
+quoteNeutral env (NPApp p t a0 a1) = PApp (quoteNeutral env p) (quote env VTiny t) (quote env undefined a0) (quote env undefined a1)
 
 nf :: Env Val -> VTy -> Tm -> Tm
 nf env a t = quote env a (eval env t)
@@ -497,6 +556,13 @@ eqTy env (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) =
         && eqTy (env `extVal` var) (apply (1+envFresh env) bclo1 var) (apply (1+envFresh env) bclo2 var)
 eqTy env VTiny VTiny = True
 eqTy env (VRoot _ a) (VRoot _ a') = eqTy (extStuck env) (appRootClosureStuck a) (appRootClosureStuck a')
+eqTy env (VPath _ c a0 a1) (VPath _ c' a0' a1') =
+  let var = makeVar env VTiny
+      a0ty = apply (1+envFresh env) c VTiny0
+      a1ty = apply (1+envFresh env) c VTiny1
+   in eqTy (env `extVal` var) (apply (1+envFresh env) c var) (apply (1+envFresh env) c' var)
+      && eqNF env (a0, a0ty) (a0', a0ty)
+      && eqNF env (a1, a1ty) (a1', a1ty)
 eqTy _ _ _ = False
 
 eqNF :: Env Val -> (Val, VTy) -> (Val, VTy) -> Bool
@@ -516,6 +582,10 @@ eqNF env (r1, VRoot _ a1) (r2, VRoot _ a2) =
   eqNF (extStuck env)
        (doRootElimEta env r1, appRootClosureStuck a1)
        (doRootElimEta env r2, appRootClosureStuck a2)
+eqNF env (f1, VPath _ c1 a0 a1) (f2, VPath _ c2 _ _) =
+  let var = makeVar env VTiny
+   in eqNF (env `extVal` var) (doPApp (1 + envFresh env) f1 var a0 a1, apply (1 + envFresh env) c1 var)
+                              (doPApp (1 + envFresh env) f2 var a0 a1, apply (1 + envFresh env) c2 var)
 eqNF env (VNeutral _ ne1, _) (VNeutral _ ne2, _) = eqNE env ne1 ne2
 eqNF _ _ _ = False
 
@@ -530,6 +600,8 @@ eqNE env (NSnd p1) (NSnd p2) = eqNE env p1 p2
 eqNE env (NRootElim tb1) (NRootElim tb2) = eqNE (env `extVal` var) (apply (1 + envFresh env) tb1 lvl) (apply (1 + envFresh env) tb2 lvl)
   where lvl = envFresh env
         var = makeVarLvl lvl VTiny
+eqNE env (NPApp f1 a1 _ _) (NPApp f2 a2 _ _) =
+  eqNE env f1 f2 && eqNF env (a1, VTiny) (a2, VTiny)
 eqNE _ ne1 ne2 = False
 
 -- type checking
@@ -594,6 +666,17 @@ check ctx t a = case (t, a) of
 
   (RRootIntro x t, VRoot x' a)
     -> RootIntro x <$> check (bindStuckLock x ctx) t (appRootClosureStuck a)
+
+  (RLam x t, VPath x' c a0 a1) -> do
+    t <- check (bind x VTiny ctx) t (apply (1 + Lvl (ctxLength ctx)) c (makeVar (env ctx) VTiny))
+    let a0ty = apply (Lvl (ctxLength ctx)) c VTiny0
+        a1ty = apply (Lvl (ctxLength ctx)) c VTiny1
+
+    unless (eqNF (ctxVals ctx) (a0, a0ty) (eval (ctxVals ctx `extVal` VTiny0) t, a0ty)
+         && eqNF (ctxVals ctx) (a1, a1ty) (eval (ctxVals ctx `extVal` VTiny1) t, a1ty)) $
+      report ctx "endpoint mismatch: "
+
+    pure $ PLam x t (quote (ctxVals ctx) a0ty a0) (quote (ctxVals ctx) a1ty a1)
 
   _ -> do
     (t, tty) <- infer ctx t
@@ -685,6 +768,14 @@ infer ctx r = case r of
 
   RRootIntro{} -> report ctx "Can't infer type for rintro expression"
 
+  RTiny0 -> pure (Tiny0, VTiny)
+  RTiny1 -> pure (Tiny1, VTiny)
+
+  RPath a b -> do
+    (a, aty) <- infer ctx a
+    b <- check ctx b aty
+    pure (Path "_" (quote (ctxVals ctx `extVal` makeVar (ctxVals ctx) VTiny) VU aty) a b, VU)
+
 -- printing
 --------------------------------------------------------------------------------
 
@@ -760,6 +851,18 @@ prettyTm prec = go prec where
     RootIntro (fresh ns -> x) t -> par p letp $ ("rintro " ++) . (x++) . (". "++) . go letp (x:ns) t
     RootElim (fresh ns -> x) t -> par p letp $ ("relim "++) . (x++) . (". "++) . go letp (x:ns) t
 
+    Tiny0                     -> ("0"++)
+    Tiny1                     -> ("1"++)
+
+    Path (fresh ns -> x) a a0 a1 -> ("PathP ("++) . (x++) . (". "++) . go pip (x:ns) a . (") "++) . go atomp ns a0 . (' ':) . go atomp ns a1
+    PLam (fresh ns -> x) t a0 a1 -> par p letp $ ("λ "++) . (x++) . goLam (x:ns) t where
+                                   goLam ns (Lam (fresh ns -> x) t) =
+                                     (' ':) . (x++) . goLam (x:ns) t
+                                   goLam ns t =
+                                     (". "++) . go letp ns t
+
+    PApp t u a0 a1               -> par p appp $ go appp ns t . (' ':) . go atomp ns u
+
 -- deriving instance Show Tm
 instance Show Tm where showsPrec p = prettyTm p []
 
@@ -785,7 +888,7 @@ pTimes   = symbol "×" <|> symbol "*"
 pSurd    = symbol "√" <|> symbol "v/" -- TODO will v get mistaken for an ident?
 
 keyword :: String -> Bool
-keyword x = x == "let" || x == "in" || x == "λ" || x == "U" || x == "T" || x == "rintro" || x == "relim" || x == "fst" || x == "snd"
+keyword x = x == "let" || x == "in" || x == "λ" || x == "U" || x == "T" || x == "rintro" || x == "relim" || x == "fst" || x == "snd" || x == "Path"
 
 pIdent :: Parser Name
 pIdent = try $ do
@@ -813,7 +916,7 @@ pVar = do
 
 pAtom :: Parser Raw
 pAtom =
-      withPos (pVar <|> (RU <$ symbol "U") <|> (RTiny <$ symbol "T"))
+      withPos (pVar <|> (RU <$ symbol "U") <|> (RTiny <$ symbol "T") <|> (RTiny0 <$ symbol "0") <|> (RTiny1 <$ symbol "1"))
   <|> parens pRaw
 
 pBinder = pIdent <|> symbol "_"
@@ -856,6 +959,12 @@ pSnd = do
   t <- pRaw
   pure (RSnd t)
 
+pPath = do
+  symbol "Path"
+  a0 <- pAtom
+  a1 <- pAtom
+  pure (RPath a0 a1)
+
 pRoot = do
   pSurd
   xs <- pBinder
@@ -890,13 +999,13 @@ pLet = do
   x <- pBinder
   symbol ":"
   a <- pRaw
-  symbol "="
+  symbol ":="
   t <- pRaw
   symbol ";"
   u <- pRaw
   pure $ RLet x a t u
 
-pRaw = withPos (pLam <|> pPair <|> pFst <|> pSnd <|> pLet <|> pRoot <|> pRootIntro <|> pRootElim <|> try pPi <|> try pSg <|> funOrSpine)
+pRaw = withPos (pLam <|> pPair <|> pFst <|> pSnd <|> pLet <|> pRoot <|> pRootIntro <|> pRootElim <|> pPath <|> try pPi <|> try pSg <|> funOrSpine)
 pSrc = ws *> pRaw <* eof
 
 parseString :: String -> IO Raw
@@ -918,7 +1027,7 @@ parseFile :: String -> IO (Raw, String)
 parseFile fn = do
   file <- readFile fn
   tm   <- parseString file
-  pure (tm, fn)
+  pure (tm, file)
 
 -- -- main
 -- ------------------------------------------------------------
