@@ -112,7 +112,7 @@ instance Show v => Show (EnvVars v) where
   showsPrec d (EnvLock fenv) = showParen (d > 10) $
     showString "EnvLock "
       -- . showsPrec 11 "..."
-      . showsPrec 11 (fenv (VNeutral VTiny (NVar (Lvl $ 1000) VTiny [])))
+      . showsPrec 11 (fenv (VNeutral (NVar (Lvl $ 1000) [])))
 
 -- Just derive this
 instance Functor EnvVars where
@@ -120,11 +120,11 @@ instance Functor EnvVars where
   fmap f (EnvVal v env) = EnvVal (f v) (fmap f env)
   fmap f (EnvLock fenv) = EnvLock (\v -> fmap f (fenv v))
 
-makeVarLvl :: Lvl -> VTy -> Val
-makeVarLvl lvl a = VNeutral a (NVar lvl a [])
+makeVarLvl :: Lvl -> Val
+makeVarLvl lvl = VNeutral (NVar lvl [])
 
-makeVar :: Env v -> VTy -> Val
-makeVar env a = makeVarLvl (Lvl $ envLength env) a
+makeVar :: Env v -> Val
+makeVar env = makeVarLvl (Lvl $ envLength env)
 
 lvl2Ix :: Env v -> Lvl -> Ix
 lvl2Ix env (Lvl x) = Ix (envLength env - x - 1)
@@ -159,7 +159,7 @@ data BindTiny a = BindTiny Name Lvl a
 type VTy = Val
 
 data Val
-  = VNeutral VTy Neutral
+  = VNeutral Neutral
   | VU
   | VPi Name VTy Closure
   | VLam Name Closure
@@ -178,8 +178,8 @@ data Val
   deriving (Show)
 
 data Neutral
-  = NVar Lvl VTy [Val]
-  | NApp Neutral Normal
+  = NVar Lvl [Val]
+  | NApp Neutral Val
   | NFst Neutral
   | NSnd Neutral
 
@@ -240,7 +240,7 @@ instance (Keyable a, Keyable b, Keyable c) => Keyable (a, b, c) where
 
 instance Keyable Val where
   addKeys fr ks = \case
-    VNeutral ty n -> VNeutral (addKeys fr ks ty) (addKeys fr ks n)
+    VNeutral n -> VNeutral (addKeys fr ks n)
     VU -> VU
     VPi x a b -> VPi x (addKeys fr ks a) (addKeys fr ks b)
     VLam x c -> VLam x (addKeys fr ks c)
@@ -256,7 +256,7 @@ instance Keyable Val where
 
 instance Keyable Neutral where
   addKeys fr ks = \case
-    NVar lvl ty keys -> NVar lvl (addKeys fr ks ty) (ks ++ fmap (addKeys fr ks) keys)
+    NVar lvl keys -> NVar lvl (ks ++ fmap (addKeys fr ks) keys)
     NApp f a -> NApp (addKeys fr ks f) (addKeys fr ks a)
     NFst a -> NFst (addKeys fr ks a)
     NSnd a -> NSnd (addKeys fr ks a)
@@ -292,7 +292,7 @@ class Substitutable a b | a -> b where
 
 instance Substitutable Val Val where
   sub fr v i = \case
-    VNeutral ty n -> sub fr v i n
+    VNeutral n -> sub fr v i n
     VU -> VU
     VPi x a b -> VPi x (sub fr v i a) (sub fr v i b)
     VLam x c -> VLam x (sub fr v i c)
@@ -308,8 +308,8 @@ instance Substitutable Val Val where
 
 instance Substitutable Neutral Val where
   sub fr v i = \case
-    var@(NVar j ty ks) | i == j -> addKeys fr (fmap (sub fr v i) ks) v
-                       | otherwise -> VNeutral subty (NVar j subty (fmap (sub fr v i) ks)) where subty = sub fr v i ty
+    var@(NVar j ks) | i == j -> addKeys fr (fmap (sub fr v i) ks) v
+                    | otherwise -> VNeutral (NVar j (fmap (sub fr v i) ks))
     NApp f a -> apply fr (sub fr v i f) (sub fr v i a)
     NFst a -> doFst (sub fr v i a)
     NSnd b -> doSnd fr (sub fr v i b)
@@ -347,7 +347,7 @@ class Renameable a where
 
 instance Renameable Val where
   rename fr v i = \case
-    VNeutral ty n -> VNeutral (rename fr v i ty) (rename fr v i n)
+    VNeutral n -> VNeutral (rename fr v i n)
     VU -> VU
     VPi x a b -> VPi x (rename fr v i a) (rename fr v i b)
     VLam x c -> VLam x (rename fr v i c)
@@ -363,8 +363,8 @@ instance Renameable Val where
 
 instance Renameable Neutral where
   rename fr v i = \case
-    NVar j ty ks | i == j -> NVar v (rename fr v i ty) (fmap (rename fr v i) ks)
-                 | otherwise -> NVar j (rename fr v i ty) (fmap (rename fr v i) ks)
+    NVar j ks | i == j -> NVar v (fmap (rename fr v i) ks)
+              | otherwise -> NVar j (fmap (rename fr v i) ks)
     NApp f a -> NApp (rename fr v i f) (rename fr v i a)
     NFst a -> NFst (rename fr v i a)
     NSnd a -> NSnd (rename fr v i a)
@@ -401,7 +401,7 @@ instance Renameable (Env Val) where
 
 doApp :: Lvl -> Val -> Val -> Val
 doApp fr (VLam _ t) u = apply fr t u
-doApp fr (VNeutral (VPi x aty bclo) ne) a = VNeutral (apply fr bclo a) (NApp ne (Normal aty a))
+doApp fr (VNeutral ne) a = VNeutral (NApp ne a)
 doApp fr t u = error $ "Unexpected in App: " ++ show t ++ " applied to " ++ show u
 
 instance Apply Val Val Val where
@@ -409,18 +409,17 @@ instance Apply Val Val Val where
 
 doFst :: Val -> Val
 doFst (VPair a b) = a
-doFst (VNeutral (VSg x aty _) ne) = VNeutral aty (NFst ne)
+doFst (VNeutral ne) = VNeutral (NFst ne)
 doFst t = error $ "Unexpected in fst: " ++ show t
 
 doSnd :: Lvl -> Val -> Val
 doSnd fr (VPair a b) = b
-doSnd fr p@(VNeutral (VSg x aty bclo) ne) =
-  let a = doFst p in VNeutral (apply fr bclo a) (NSnd ne)
+doSnd fr (VNeutral ne) = VNeutral (NSnd ne)
 doSnd fr t = error $ "Unexpected in snd: " ++ show t
 
 doRootElim :: Lvl -> Val -> Lvl -> Val
 doRootElim fr (VRootIntro l c) lvl = coapply fr c lvl
-doRootElim fr (VNeutral (VRoot l c) ne) lvl = VNeutral (coapply fr c lvl) (NRootElim (BindTiny "geni" lvl ne))
+doRootElim fr (VNeutral ne) lvl = VNeutral (NRootElim (BindTiny "geni" lvl ne))
 doRootElim fr v lvl = error $ "Unexpected in relim: " ++ show v
 
 instance CoApply Val Lvl Val where
@@ -429,13 +428,13 @@ instance CoApply Val Lvl Val where
 doRootElimEta :: Env v -> Val -> Val
 doRootElimEta env r =
   let lvl = envFresh env
-  in doRootElim (lvl + 1) (addKey (lvl+1) (makeVarLvl lvl VTiny) r) lvl
+  in doRootElim (lvl + 1) (addKey (lvl+1) (makeVarLvl lvl) r) lvl
 
 doPApp :: Lvl -> Val -> Val -> Val -> Val -> Val
 doPApp fr p VTiny0 a0 a1 = a0
 doPApp fr p VTiny1 a0 a1 = a1
 doPApp fr (VPLam x c _ _) t a0 a1 = apply fr c t
-doPApp fr (VNeutral (VPath x c _ _) ne) t a0 a1 = VNeutral (apply fr c t) (NPApp ne t a0 a1)
+doPApp fr (VNeutral ne) t a0 a1 = VNeutral (NPApp ne t a0 a1)
 doPApp fr v _ _ _ = error $ "Unexpected in papp: " ++ show v
 
 envLookup :: EnvVars v -> Ix -> [Val] -> v
@@ -466,7 +465,7 @@ eval env t = case t of
   Tiny                        -> VTiny
   Root l a                    -> VRoot l (RootClosure env a)
   RootIntro l t               -> VRootIntro l (RootClosure env t)
-  RootElim x t                -> let lvl = envFresh env in coapply (1+lvl) (eval (env `extVal` makeVarLvl lvl VTiny) t) lvl
+  RootElim x t                -> let lvl = envFresh env in coapply (1+lvl) (eval (env `extVal` makeVarLvl lvl) t) lvl
 
   Tiny0 -> VTiny0
   Tiny1 -> VTiny1
@@ -474,134 +473,118 @@ eval env t = case t of
   PLam x a a0 a1 -> VPLam x (Closure env a) (eval env a0) (eval env a1)
   PApp p t a0 a1 -> doPApp (envFresh env) (eval env p) (eval env t) (eval env a0) (eval env a1)
 
-quoteType :: Env Val -> VTy -> Tm
-quoteType env = \case
-  (VNeutral _ ne)              -> quoteNeutral env ne
+quote :: Env Val -> Val -> Tm
+quote env = \case
   VU                           -> U
-  VPi x a b                    -> Pi x (quoteType env a) (let var = makeVar env a in quoteType (env `extVal` var) (apply (1+envFresh env) b var))
-  VSg x a b                    -> Sg x (quoteType env a) (let var = makeVar env a in quoteType (env `extVal` var) (apply (1+envFresh env) b var))
+  VPi x a b                    -> Pi x (quote env a) (let var = makeVar env in quote (env `extVal` var) (apply (1+envFresh env) b var))
+  VSg x a b                    -> Sg x (quote env a) (let var = makeVar env in quote (env `extVal` var) (apply (1+envFresh env) b var))
 
   ---- New:
   VTiny                        -> Tiny
-  VRoot l a                    -> Root l (quoteType (extStuck env) (appRootClosureStuck a))
+  VRoot l a                    -> Root l (quote (extStuck env) (appRootClosureStuck a))
 
-  VPath x a a0 a1              -> Path x (let var = makeVar env VTiny in quoteType (env `extVal` var) (apply (1+envFresh env) a var))
-                                  (quote env (apply (envFresh env) a VTiny0) a0) (quote env (apply (envFresh env) a VTiny1) a1)
-  t                            -> error ("type expected, got " ++ show t)
+  VPath x a a0 a1              -> Path x (let var = makeVar env in quote (env `extVal` var) (apply (1+envFresh env) a var)) (quote env a0) (quote env a1)
 
-quote :: Env Val -> VTy -> Val -> Tm
-quote env = \cases
-  VU vty                         -> quoteType env vty
-  (VPi _ a b) (VLam x c)         -> Lam x (let var = makeVar env a in quote (env `extVal` var) (apply (1+envFresh env) b var) (apply (1+envFresh env) c var))
-  (VPi x a b) f                  -> Lam x (let var = makeVar env a in quote (env `extVal` var) (apply (1+envFresh env) b var) (apply (1+envFresh env) f var))
+  (VLam x c)         -> Lam x (let var = makeVar env in quote (env `extVal` var) (apply (1+envFresh env) c var))
 
-  (VSg _ a b) (VPair fst snd)    ->
-    let bty = apply (envFresh env) b fst
-    in Pair (quote env a fst) (quote env bty snd)
-  (VSg x a b) p                  ->
-    let fst = doFst p
-        bty = apply (envFresh env) b fst
-        snd = doSnd (envFresh env) p
-    in Pair (quote env a fst) (quote env bty snd)
+  (VPair fst snd)    -> Pair (quote env fst) (quote env snd)
 
   ---- New:
-  -- (VRoot _ a) (VRootIntro l c)   -> RootIntro l (quote (extStuck env)
-  --                                                      (appRootClosureStuck a)
-  --                                                      (doRootElimEta env _))
-  (VRoot l a) r                  -> RootIntro l (quote (extStuck env)
-                                                       (appRootClosureStuck a)
-                                                       (doRootElimEta env r))
+  (VRootIntro l c)   -> RootIntro l (quote (extStuck env) (appRootClosureStuck c))
 
-  (VPath x c a0 a1) p            ->
-     let a0ty = apply (envFresh env) c VTiny0
-         a1ty = apply (envFresh env) c VTiny1
-         var = makeVar env VTiny
-     in Path x (quote (env `extVal` var) (apply (1+envFresh env) c var) (doPApp (1+envFresh env) p var a0 a1))
-        (quote env a0ty a0) (quote env a1ty a1)
 
-  -- For debugging
-  ty (VNeutral tyne ne)          -> if not (eqTy env ty tyne) then
-                                      error $ "neutral type mismatch: " ++ show ty  ++ ", " ++ show tyne
-                                    else
-                                      quoteNeutral env ne
-  -- _ (VNeutral _ ne)              -> quoteNeutral env ne
+  VTiny0                       -> Tiny0
+  VTiny1                       -> Tiny1
+  (VPLam x p a0 a1)            ->
+     let var = makeVar env
+     in PLam x (quote (env `extVal` var) (apply (1+envFresh env) p var)) (quote env a0) (quote env a1)
 
-  _ _                            -> error "Can't quote"
+  (VNeutral ne)              -> quoteNeutral env ne
+
+  v                          -> error $ "Can't quote " ++ show v
 
 quoteNeutral :: Env Val -> Neutral -> Tm
-quoteNeutral env (NVar x ty keys) = Var (lvl2Ix env x) (fmap (quote env VTiny) keys)
-quoteNeutral env (NApp f (Normal aty a)) = App (quoteNeutral env f) (quote env aty a)
+quoteNeutral env (NVar x keys) = Var (lvl2Ix env x) (fmap (quote env) keys)
+quoteNeutral env (NApp f a) = App (quoteNeutral env f) (quote env a)
 quoteNeutral env (NFst a) = Fst (quoteNeutral env a)
 quoteNeutral env (NSnd a) = Snd (quoteNeutral env a)
-quoteNeutral env (NRootElim bt@(BindTiny l lvl r)) = RootElim l (let lvl = envFresh env in quoteNeutral (env `extVal` makeVarLvl lvl VTiny) (apply (1+lvl) bt lvl))
-quoteNeutral env (NPApp p t a0 a1) = PApp (quoteNeutral env p) (quote env VTiny t) (quote env undefined a0) (quote env undefined a1)
+quoteNeutral env (NRootElim bt@(BindTiny l lvl r)) = RootElim l (let lvl = envFresh env in quoteNeutral (env `extVal` makeVarLvl lvl) (apply (1+lvl) bt lvl))
+quoteNeutral env (NPApp p t a0 a1) = PApp (quoteNeutral env p) (quote env t) (quote env a0) (quote env a1)
 
 nf :: Env Val -> VTy -> Tm -> Tm
-nf env a t = quote env a (eval env t)
+nf env a t = quote env (eval env t)
 
 -- conversion
 ------------------------------------------------------------
 
-eqTy :: Env Val -> VTy -> VTy -> Bool
--- eqTy env p1 p2 | traceShow ("eqTy:", p1, p2) False = undefined
-eqTy env VU VU =True
-eqTy env (VNeutral _ ne1) (VNeutral _ ne2) = eqNE env ne1 ne2
-eqTy env (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) =
-  let var = makeVar env aty1
-   in eqTy env aty1 aty2
-        && eqTy (env `extVal` var) (apply (1+envFresh env) bclo1 var) (apply (1+envFresh env) bclo2 var)
-eqTy env (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) =
-  let var = makeVar env aty1
-   in eqTy env aty1 aty2
-        && eqTy (env `extVal` var) (apply (1+envFresh env) bclo1 var) (apply (1+envFresh env) bclo2 var)
-eqTy env VTiny VTiny = True
-eqTy env (VRoot _ a) (VRoot _ a') = eqTy (extStuck env) (appRootClosureStuck a) (appRootClosureStuck a')
-eqTy env (VPath _ c a0 a1) (VPath _ c' a0' a1') =
-  let var = makeVar env VTiny
-      a0ty = apply (1+envFresh env) c VTiny0
-      a1ty = apply (1+envFresh env) c VTiny1
-   in eqTy (env `extVal` var) (apply (1+envFresh env) c var) (apply (1+envFresh env) c' var)
-      && eqNF env (a0, a0ty) (a0', a0ty)
-      && eqNF env (a1, a1ty) (a1', a1ty)
-eqTy _ _ _ = False
+eq :: Env Val -> Val -> Val -> Bool
+-- eq env p1 p2 | traceShow ("eq:", p1, p2) False = undefined
+eq env VU VU =True
+eq env (VNeutral ne1) (VNeutral ne2) = eqNE env ne1 ne2
+eq env (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) =
+  let var = makeVar env
+   in eq env aty1 aty2
+        && eq (env `extVal` var) (apply (1+envFresh env) bclo1 var) (apply (1+envFresh env) bclo2 var)
+eq env (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) =
+  let var = makeVar env
+   in eq env aty1 aty2
+        && eq (env `extVal` var) (apply (1+envFresh env) bclo1 var) (apply (1+envFresh env) bclo2 var)
+eq env VTiny VTiny = True
+eq env (VRoot _ a) (VRoot _ a') = eq (extStuck env) (appRootClosureStuck a) (appRootClosureStuck a')
+eq env (VPath _ c a0 a1) (VPath _ c' a0' a1') =
+  let var = makeVar env
+   in eq (env `extVal` var) (apply (1+envFresh env) c var) (apply (1+envFresh env) c' var)
+      && eq env a0 a0'
+      && eq env a1 a1'
 
-eqNF :: Env Val -> (Val, VTy) -> (Val, VTy) -> Bool
--- eqNF env p1 p2 | traceShow ("eqNF:", p1, p2) False = undefined
-eqNF env (ty1, VU) (ty2, VU) = eqTy env ty1 ty2
-eqNF env (f1, VPi _ aty1 bclo1) (f2, VPi _ aty2 bclo2) =
-  let var = makeVar env aty1
-   in eqNF (env `extVal` var) (apply (1 + envFresh env) f1 var, apply (1 + envFresh env) bclo1 var)
-                              (apply (1 + envFresh env) f2 var, apply (1 + envFresh env) bclo2 var)
-eqNF env (p1, VSg _ aty1 bclo1) (p2, VSg _ aty2 bclo2) =
-  let a1 = doFst p1
-      a2 = doFst p2
-  in eqNF env (a1, aty1) (a2, aty2) &&
-     eqNF env (doSnd (envFresh env) p1, apply (envFresh env) bclo1 a1)
-              (doSnd (envFresh env) p2, apply (envFresh env) bclo2 a2)
-eqNF env (r1, VRoot _ a1) (r2, VRoot _ a2) =
-  eqNF (extStuck env)
-       (doRootElimEta env r1, appRootClosureStuck a1)
-       (doRootElimEta env r2, appRootClosureStuck a2)
-eqNF env (f1, VPath _ c1 a0 a1) (f2, VPath _ c2 _ _) =
-  let var = makeVar env VTiny
-   in eqNF (env `extVal` var) (doPApp (1 + envFresh env) f1 var a0 a1, apply (1 + envFresh env) c1 var)
-                              (doPApp (1 + envFresh env) f2 var a0 a1, apply (1 + envFresh env) c2 var)
-eqNF env (VNeutral _ ne1, _) (VNeutral _ ne2, _) = eqNE env ne1 ne2
-eqNF _ _ _ = False
+eq env (VLam x b) (VLam x' b') =
+  let var = makeVar env
+  in eq (env `extVal` var) (apply (1 + envFresh env) b var) (apply (1 + envFresh env) b' var)
+eq env (VLam x b) f' =
+  let var = makeVar env
+  in eq (env `extVal` var) (apply (1 + envFresh env) b var) (apply (1 + envFresh env) f' var)
+eq env f (VLam x' b')  =
+  let var = makeVar env
+  in eq (env `extVal` var) (apply (1 + envFresh env) f var) (apply (1 + envFresh env) b' var)
+
+eq env (VPair a1 b1) (VPair a2 b2) =
+  eq env a1 a2 && eq env b1 b2
+eq env (VPair a1 b1) p2 =
+  eq env a1 (doFst p2) && eq env b1 (doSnd (envFresh env) p2)
+eq env p1 (VPair a2 b2) =
+  eq env (doFst p1) a2 && eq env (doSnd (envFresh env) p1) b2
+
+eq env (VRootIntro l a1) (VRootIntro _ a2) =
+  eq (extStuck env) (appRootClosureStuck a1) (appRootClosureStuck a2)
+eq env (VRootIntro l a1) r2 =
+  eq (extStuck env) (appRootClosureStuck a1) (doRootElimEta env r2)
+eq env r1 (VRootIntro l a2) =
+  eq (extStuck env) (doRootElimEta env r1) (appRootClosureStuck a2)
+
+eq env (VPLam x b a0 a1) (VPLam x' b' _ _) =
+  let var = makeVar env
+  in eq (env `extVal` var) (apply (1 + envFresh env) b var) (apply (1 + envFresh env) b' var)
+eq env (VPLam x b a0 a1) f' =
+  let var = makeVar env
+  in eq (env `extVal` var) (apply (1 + envFresh env) b var) (doPApp (1 + envFresh env) f' var a0 a1)
+eq env f (VPLam x' b' a0 a1)  =
+  let var = makeVar env
+  in eq (env `extVal` var) (doPApp (1 + envFresh env) f var a0 a1) (apply (1 + envFresh env) b' var)
+eq _ _ _ = False
 
 eqNE :: Env Val -> Neutral -> Neutral -> Bool
 -- eqNE env p1 p2 | traceShow ("eqNE:", p1, p2) False = undefined
-eqNE env (NVar i ity ikeys) (NVar j jty jkeys) = i == j && all (uncurry keyeq) (zip ikeys jkeys)
-  where keyeq ik jk = eqNF env (ik, VTiny) (jk, VTiny)
-eqNE env (NApp f1 (Normal aty1 a1)) (NApp f2 (Normal aty2 a2)) =
-  eqNE env f1 f2 && eqNF env (a1, aty1) (a2, aty2)
+eqNE env (NVar i ikeys) (NVar j jkeys) = i == j && all (uncurry keyeq) (zip ikeys jkeys)
+  where keyeq ik jk = eq env ik jk
+eqNE env (NApp f1 a1) (NApp f2 a2) =
+  eqNE env f1 f2 && eq env a1 a2
 eqNE env (NFst p1) (NFst p2) = eqNE env p1 p2
 eqNE env (NSnd p1) (NSnd p2) = eqNE env p1 p2
 eqNE env (NRootElim tb1) (NRootElim tb2) = eqNE (env `extVal` var) (apply (1 + envFresh env) tb1 lvl) (apply (1 + envFresh env) tb2 lvl)
   where lvl = envFresh env
-        var = makeVarLvl lvl VTiny
+        var = makeVarLvl lvl
 eqNE env (NPApp f1 a1 _ _) (NPApp f2 a2 _ _) =
-  eqNE env f1 f2 && eqNF env (a1, VTiny) (a2, VTiny)
+  eqNE env f1 f2 && eq env a1 a2
 eqNE _ ne1 ne2 = False
 
 -- type checking
@@ -629,7 +612,7 @@ define :: Name -> Val -> VTy -> Ctx -> Ctx
 define x v a (Ctx env pos) = Ctx (env `extVal` (x, v, a)) pos
 
 bind :: Name -> VTy -> Ctx -> Ctx
-bind x a ctx = define x (makeVar (env ctx) a) a ctx
+bind x a ctx = define x (makeVar (env ctx)) a ctx
 
 bindStuckLock :: Name -> Ctx -> Ctx
 bindStuckLock l (Ctx env pos) = Ctx (extStuck env) pos
@@ -655,7 +638,7 @@ check ctx t a = case (t, a) of
     pure (Let x a t u)
 
   (RLam x t, VPi x' a b) ->
-    Lam x <$> check (bind x a ctx) t (apply (1 + Lvl (ctxLength ctx)) b (makeVar (env ctx) a))
+    Lam x <$> check (bind x a ctx) t (apply (1 + Lvl (ctxLength ctx)) b (makeVar (env ctx)))
 
   (RPair a b, VSg x aty bty) -> do
     a <- check ctx a aty
@@ -668,19 +651,16 @@ check ctx t a = case (t, a) of
     -> RootIntro x <$> check (bindStuckLock x ctx) t (appRootClosureStuck a)
 
   (RLam x t, VPath x' c a0 a1) -> do
-    t <- check (bind x VTiny ctx) t (apply (1 + Lvl (ctxLength ctx)) c (makeVar (env ctx) VTiny))
-    let a0ty = apply (Lvl (ctxLength ctx)) c VTiny0
-        a1ty = apply (Lvl (ctxLength ctx)) c VTiny1
-
-    unless (eqNF (ctxVals ctx) (a0, a0ty) (eval (ctxVals ctx `extVal` VTiny0) t, a0ty)
-         && eqNF (ctxVals ctx) (a1, a1ty) (eval (ctxVals ctx `extVal` VTiny1) t, a1ty)) $
+    t <- check (bind x VTiny ctx) t (apply (1 + Lvl (ctxLength ctx)) c (makeVar (env ctx)))
+    unless (eq (ctxVals ctx) a0 (eval (ctxVals ctx `extVal` VTiny0) t)
+         && eq (ctxVals ctx) a1 (eval (ctxVals ctx `extVal` VTiny1) t)) $
       report ctx "endpoint mismatch: "
 
-    pure $ PLam x t (quote (ctxVals ctx) a0ty a0) (quote (ctxVals ctx) a1ty a1)
+    pure $ PLam x t (quote (ctxVals ctx) a0) (quote (ctxVals ctx) a1)
 
   _ -> do
     (t, tty) <- infer ctx t
-    unless (eqTy (ctxVals ctx) tty a) $
+    unless (eq (ctxVals ctx) tty a) $
      report ctx ("type mismatch: " ++ show tty  ++ ", " ++ show a)
     pure t
 
@@ -774,7 +754,7 @@ infer ctx r = case r of
   RPath a b -> do
     (a, aty) <- infer ctx a
     b <- check ctx b aty
-    pure (Path "_" (quote (ctxVals ctx `extVal` makeVar (ctxVals ctx) VTiny) VU aty) a b, VU)
+    pure (Path "_" (quote (ctxVals ctx `extVal` makeVar (ctxVals ctx)) aty) a b, VU)
 
 -- printing
 --------------------------------------------------------------------------------
@@ -855,17 +835,11 @@ prettyTm prec = go prec where
     Tiny1                     -> ("1"++)
 
     Path (fresh ns -> x) a a0 a1 -> ("PathP ("++) . (x++) . (". "++) . go pip (x:ns) a . (") "++) . go atomp ns a0 . (' ':) . go atomp ns a1
-    PLam (fresh ns -> x) t a0 a1 -> par p letp $ ("λ "++) . (x++) . goLam (x:ns) t where
-                                   goLam ns (Lam (fresh ns -> x) t) =
-                                     (' ':) . (x++) . goLam (x:ns) t
-                                   goLam ns t =
-                                     (". "++) . go letp ns t
-
+    PLam (fresh ns -> x) t a0 a1 -> par p letp $ ("λ "++) . (x++) . (". "++) . go letp (x:ns) t
     PApp t u a0 a1               -> par p appp $ go appp ns t . (' ':) . go atomp ns u
 
 -- deriving instance Show Tm
 instance Show Tm where showsPrec p = prettyTm p []
-
 
 -- parsing
 ------------------------------------------------------------
@@ -1052,12 +1026,12 @@ mainWith getOpt getRaw = do
         Right (t, a) -> do
           print $ nf emptyEnv a t
           putStrLn "  :"
-          print $ quote emptyEnv VU a
+          print $ quote emptyEnv a
     ["type"] -> do
       (t, file) <- getRaw
       case infer (emptyCtx (initialPos file)) t of
         Left err     -> displayError file err
-        Right (t, a) -> print $ quote emptyEnv a VU
+        Right (t, a) -> print $ quote emptyEnv a
     _ -> putStrLn "unknown option"
 
 main :: IO ()
