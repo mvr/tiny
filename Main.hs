@@ -499,30 +499,32 @@ eqTy env VTiny VTiny = True
 eqTy env (VRoot _ a) (VRoot _ a') = eqTy (extStuck env) (appRootClosureStuck a) (appRootClosureStuck a')
 eqTy _ _ _ = False
 
-eqNF :: Env Val -> (VTy, Val) -> (VTy, Val) -> Bool
+eqNF :: Env Val -> (Val, VTy) -> (Val, VTy) -> Bool
 -- eqNF env p1 p2 | traceShow ("eqNF:", p1, p2) False = undefined
-eqNF env (VU, ty1) (VU, ty2) = eqTy env ty1 ty2
-eqNF env (VPi _ aty1 bclo1, f1) (VPi _ aty2 bclo2, f2) =
+eqNF env (ty1, VU) (ty2, VU) = eqTy env ty1 ty2
+eqNF env (f1, VPi _ aty1 bclo1) (f2, VPi _ aty2 bclo2) =
   let var = makeVar env aty1
-   in eqNF (env `extVal` var) (apply (1 + envFresh env) bclo1 var, apply (1 + envFresh env) f1 var) (apply (1 + envFresh env) bclo2 var, apply (1 + envFresh env) f2 var)
-eqNF env (VSg _ aty1 bclo1, p1) (VSg _ aty2 bclo2, p2) =
+   in eqNF (env `extVal` var) (apply (1 + envFresh env) f1 var, apply (1 + envFresh env) bclo1 var)
+                              (apply (1 + envFresh env) f2 var, apply (1 + envFresh env) bclo2 var)
+eqNF env (p1, VSg _ aty1 bclo1) (p2, VSg _ aty2 bclo2) =
   let a1 = doFst p1
       a2 = doFst p2
-  in eqNF env (aty1, a1) (aty2, a2) &&
-     eqNF env (apply (envFresh env) bclo1 a1, doSnd (envFresh env) p1) (apply (envFresh env) bclo2 a2, doSnd (envFresh env) p2)
-eqNF env (VRoot _ a1, r1) (VRoot _ a2, r2) =
+  in eqNF env (a1, aty1) (a2, aty2) &&
+     eqNF env (doSnd (envFresh env) p1, apply (envFresh env) bclo1 a1)
+              (doSnd (envFresh env) p2, apply (envFresh env) bclo2 a2)
+eqNF env (r1, VRoot _ a1) (r2, VRoot _ a2) =
   eqNF (extStuck env)
-       (appRootClosureStuck a1, doRootElimEta env r1)
-       (appRootClosureStuck a2, doRootElimEta env r2)
-eqNF env (_, VNeutral _ ne1) (_, VNeutral _ ne2) = eqNE env ne1 ne2
+       (doRootElimEta env r1, appRootClosureStuck a1)
+       (doRootElimEta env r2, appRootClosureStuck a2)
+eqNF env (VNeutral _ ne1, _) (VNeutral _ ne2, _) = eqNE env ne1 ne2
 eqNF _ _ _ = False
 
 eqNE :: Env Val -> Neutral -> Neutral -> Bool
 -- eqNE env p1 p2 | traceShow ("eqNE:", p1, p2) False = undefined
 eqNE env (NVar i ity ikeys) (NVar j jty jkeys) = i == j && all (uncurry keyeq) (zip ikeys jkeys)
-  where keyeq ik jk = eqNF env (VTiny, ik) (VTiny, jk)
+  where keyeq ik jk = eqNF env (ik, VTiny) (jk, VTiny)
 eqNE env (NApp f1 (Normal aty1 a1)) (NApp f2 (Normal aty2 a2)) =
-  eqNE env f1 f2 && eqNF env (aty1, a1) (aty2, a2)
+  eqNE env f1 f2 && eqNF env (a1, aty1) (a2, aty2)
 eqNE env (NFst p1) (NFst p2) = eqNE env p1 p2
 eqNE env (NSnd p1) (NSnd p2) = eqNE env p1 p2
 eqNE env (NRootElim tb1) (NRootElim tb2) = eqNE (env `extVal` var) (apply (1 + envFresh env) tb1 lvl) (apply (1 + envFresh env) tb2 lvl)
