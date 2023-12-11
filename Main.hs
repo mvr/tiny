@@ -28,8 +28,6 @@ newtype Lvl = Lvl Int deriving (Eq, Ord, Show, Num) via Int
 
 type Name = String
 
-type LockName = String
-
 data Raw
   = RU
   | RLet Name Raw Raw Raw
@@ -45,8 +43,8 @@ data Raw
   ---- New:
   | RVar Name [Raw]
   | RTiny
-  | RRoot LockName Raw
-  | RRootIntro LockName Raw
+  | RRoot Raw
+  | RRootIntro Raw
   | RRootElim Name Raw
 
   ---- Cubical:
@@ -74,9 +72,8 @@ data Tm
   ---- New:
   | Var Ix [Tm]
   | Tiny
-  -- | Key Tm Tm
-  | Root LockName Ty
-  | RootIntro LockName Tm
+  | Root Ty
+  | RootIntro Tm
   | RootElim Name Tm
 
   ---- Cubical:
@@ -168,8 +165,8 @@ data Val
 
   ---- New:
   | VTiny
-  | VRoot LockName RootClosure
-  | VRootIntro LockName RootClosure
+  | VRoot RootClosure
+  | VRootIntro RootClosure
 
   ---- Cubical:
   | VTiny0 | VTiny1
@@ -247,8 +244,8 @@ instance Keyable Val where
     VSg x a b -> VSg x (addKeys fr ks a) (addKeys fr ks b)
     VPair x y -> VPair (addKeys fr ks x) (addKeys fr ks y)
     VTiny -> VTiny
-    VRoot l c -> VRoot l (addKeys fr ks c)
-    VRootIntro l c -> VRootIntro l (addKeys fr ks c)
+    VRoot c -> VRoot (addKeys fr ks c)
+    VRootIntro c -> VRootIntro (addKeys fr ks c)
     VTiny0 -> VTiny0
     VTiny1 -> VTiny1
     VPath l c a0 a1 -> VPath l (addKeys fr ks c) (addKeys fr ks a0) (addKeys fr ks a1)
@@ -299,8 +296,8 @@ instance Substitutable Val Val where
     VSg x a b -> VSg x (sub fr v i a) (sub fr v i b)
     VPair a b -> VPair (sub fr v i a) (sub fr v i b)
     VTiny -> VTiny
-    VRoot l c -> VRoot l (sub fr v i c)
-    VRootIntro l c -> VRootIntro l (sub fr v i c)
+    VRoot c -> VRoot (sub fr v i c)
+    VRootIntro c -> VRootIntro (sub fr v i c)
     VTiny0 -> VTiny0
     VTiny1 -> VTiny1
     VPath l c a0 a1 -> VPath l (sub fr v i c) (sub fr v i a0) (sub fr v i a1)
@@ -354,8 +351,8 @@ instance Renameable Val where
     VSg x a b -> VSg x (rename fr v i a) (rename fr v i b)
     VPair a b -> VPair (rename fr v i a) (rename fr v i b)
     VTiny -> VTiny
-    VRoot l c -> VRoot l (rename fr v i c)
-    VRootIntro l c -> VRootIntro l (rename fr v i c)
+    VRoot c -> VRoot (rename fr v i c)
+    VRootIntro c -> VRootIntro (rename fr v i c)
     VTiny0 -> VTiny0
     VTiny1 -> VTiny1
     VPath l c a0 a1 -> VPath l (rename fr v i c) (rename fr v i a0) (rename fr v i a1)
@@ -418,7 +415,7 @@ doSnd fr (VNeutral ne) = VNeutral (NSnd ne)
 doSnd fr t = error $ "Unexpected in snd: " ++ show t
 
 doRootElim :: Lvl -> Val -> Lvl -> Val
-doRootElim fr (VRootIntro l c) lvl = coapply fr c lvl
+doRootElim fr (VRootIntro c) lvl = coapply fr c lvl
 doRootElim fr (VNeutral ne) lvl = VNeutral (NRootElim (BindTiny "geni" lvl ne))
 doRootElim fr v lvl = error $ "Unexpected in relim: " ++ show v
 
@@ -463,8 +460,8 @@ eval env t = case t of
   ---- New:
   Var x keys                  -> envLookup (envVars env) x (fmap (eval env) keys)
   Tiny                        -> VTiny
-  Root l a                    -> VRoot l (RootClosure env a)
-  RootIntro l t               -> VRootIntro l (RootClosure env t)
+  Root a                      -> VRoot (RootClosure env a)
+  RootIntro t                 -> VRootIntro (RootClosure env t)
   RootElim x t                -> let lvl = envFresh env in coapply (1+lvl) (eval (env `extVal` makeVarLvl lvl) t) lvl
 
   Tiny0 -> VTiny0
@@ -481,7 +478,7 @@ quote env = \case
 
   ---- New:
   VTiny                        -> Tiny
-  VRoot l a                    -> Root l (quote (extStuck env) (appRootClosureStuck a))
+  VRoot a                      -> Root (quote (extStuck env) (appRootClosureStuck a))
 
   VPath x a a0 a1              -> Path x (let var = makeVar env in quote (env `extVal` var) (apply (1+envFresh env) a var)) (quote env a0) (quote env a1)
 
@@ -490,7 +487,7 @@ quote env = \case
   (VPair fst snd)    -> Pair (quote env fst) (quote env snd)
 
   ---- New:
-  (VRootIntro l c)   -> RootIntro l (quote (extStuck env) (appRootClosureStuck c))
+  (VRootIntro c)   -> RootIntro (quote (extStuck env) (appRootClosureStuck c))
 
 
   VTiny0                       -> Tiny0
@@ -530,7 +527,7 @@ eq env (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) =
    in eq env aty1 aty2
         && eq (env `extVal` var) (apply (1+envFresh env) bclo1 var) (apply (1+envFresh env) bclo2 var)
 eq env VTiny VTiny = True
-eq env (VRoot _ a) (VRoot _ a') = eq (extStuck env) (appRootClosureStuck a) (appRootClosureStuck a')
+eq env (VRoot a) (VRoot a') = eq (extStuck env) (appRootClosureStuck a) (appRootClosureStuck a')
 eq env (VPath _ c a0 a1) (VPath _ c' a0' a1') =
   let var = makeVar env
    in eq (env `extVal` var) (apply (1+envFresh env) c var) (apply (1+envFresh env) c' var)
@@ -554,11 +551,11 @@ eq env (VPair a1 b1) p2 =
 eq env p1 (VPair a2 b2) =
   eq env (doFst p1) a2 && eq env (doSnd (envFresh env) p1) b2
 
-eq env (VRootIntro l a1) (VRootIntro _ a2) =
+eq env (VRootIntro a1) (VRootIntro a2) =
   eq (extStuck env) (appRootClosureStuck a1) (appRootClosureStuck a2)
-eq env (VRootIntro l a1) r2 =
+eq env (VRootIntro a1) r2 =
   eq (extStuck env) (appRootClosureStuck a1) (doRootElimEta env r2)
-eq env r1 (VRootIntro l a2) =
+eq env r1 (VRootIntro a2) =
   eq (extStuck env) (doRootElimEta env r1) (appRootClosureStuck a2)
 
 eq env (VPLam x b a0 a1) (VPLam x' b' _ _) =
@@ -574,8 +571,7 @@ eq _ _ _ = False
 
 eqNE :: Env Val -> Neutral -> Neutral -> Bool
 -- eqNE env p1 p2 | traceShow ("eqNE:", p1, p2) False = undefined
-eqNE env (NVar i ikeys) (NVar j jkeys) = i == j && all (uncurry keyeq) (zip ikeys jkeys)
-  where keyeq ik jk = eq env ik jk
+eqNE env (NVar i ikeys) (NVar j jkeys) = i == j && all (uncurry (eq env)) (zip ikeys jkeys)
 eqNE env (NApp f1 a1) (NApp f2 a2) =
   eqNE env f1 f2 && eq env a1 a2
 eqNE env (NFst p1) (NFst p2) = eqNE env p1 p2
@@ -614,8 +610,8 @@ define x v a (Ctx env pos) = Ctx (env `extVal` (x, v, a)) pos
 bind :: Name -> VTy -> Ctx -> Ctx
 bind x a ctx = define x (makeVar (env ctx)) a ctx
 
-bindStuckLock :: Name -> Ctx -> Ctx
-bindStuckLock l (Ctx env pos) = Ctx (extStuck env) pos
+bindStuckLock :: Ctx -> Ctx
+bindStuckLock (Ctx env pos) = Ctx (extStuck env) pos
 
 report :: Ctx -> String -> M a
 report ctx msg = Left (msg, pos ctx)
@@ -647,8 +643,8 @@ check ctx t a = case (t, a) of
 
   ---- New:
 
-  (RRootIntro x t, VRoot x' a)
-    -> RootIntro x <$> check (bindStuckLock x ctx) t (appRootClosureStuck a)
+  (RRootIntro t, VRoot a)
+    -> RootIntro <$> check (bindStuckLock ctx) t (appRootClosureStuck a)
 
   (RLam x t, VPath x' c a0 a1) -> do
     t <- check (bind x VTiny ctx) t (apply (1 + Lvl (ctxLength ctx)) c (makeVar (env ctx)))
@@ -734,14 +730,14 @@ infer ctx r = case r of
 
   RTiny -> pure (Tiny, VU)
 
-  RRoot l a -> do
-    a <- check (bindStuckLock l ctx) a VU
-    pure (Root l a, VU)
+  RRoot a -> do
+    a <- check (bindStuckLock ctx) a VU
+    pure (Root a, VU)
 
   RRootElim x t -> do
     (t, tty) <- infer (bind x VTiny ctx) t
     case tty of
-      VRoot _ c -> do
+      VRoot c -> do
           pure (RootElim x t, coapply (Lvl $ ctxLength ctx) c (Lvl $ ctxLength ctx))
       tty ->
         report ctx $ "Expected a root type, instead inferred:\n\n  " ++ "todo" -- showVal ctx tty
@@ -827,8 +823,8 @@ prettyTm prec = go prec where
                                    goKeys (k:ks) = go p ns k . (", " ++) . goKeys ks
 
     Tiny                      -> ("T"++)
-    Root (fresh ns -> x) a    -> par p pip $ ("√ " ++) . (x++) . (". "++) . go pip (x:ns) a
-    RootIntro (fresh ns -> x) t -> par p letp $ ("rintro " ++) . (x++) . (". "++) . go letp (x:ns) t
+    Root a                    -> par p pip $ ("√ " ++) . go pip ("L":ns) a
+    RootIntro t -> par p letp $ ("rintro " ++) . go letp ("L":ns) t
     RootElim (fresh ns -> x) t -> par p letp $ ("relim "++) . (x++) . (". "++) . go letp (x:ns) t
 
     Tiny0                     -> ("0"++)
@@ -941,17 +937,13 @@ pPath = do
 
 pRoot = do
   pSurd
-  xs <- pBinder
-  char '.'
   t <- pRaw
-  pure (RRoot xs t)
+  pure (RRoot t)
 
 pRootIntro = do
   symbol "rintro"
-  xs <- pBinder
-  char '.'
   t <- pRaw
-  pure (RRootIntro xs t)
+  pure (RRootIntro t)
 
 pRootElim = do
   symbol "relim"
