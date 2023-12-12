@@ -1,10 +1,11 @@
-nname:                tiny
+name:                tiny
 version:             0.1.0.0
 license:             BSD3
 category:            Language
 
 default-extensions:
 - BangPatterns
+- BlockArguments
 - ConstraintKinds
 - DeriveFunctor
 - DerivingVia
@@ -19,6 +20,7 @@ default-extensions:
 - PatternSynonyms
 - RankNTypes
 - RecordWildCards
+- ScopedTypeVariables
 - StandaloneDeriving
 - Strict
 - TupleSections
@@ -34,7 +36,7 @@ ghc-options:
 source-dirs: .
 
 executable:
-  main: MainRedux.hs
+  main: Main.hs
   dependencies:
     - base >= 4.7 && < 5
     - megaparsec
