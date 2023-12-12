@@ -11,7 +11,6 @@ module Main where
 
 import Control.Monad (unless, guard)
 import Data.Char
-import Data.Coerce
 import Data.Maybe (fromMaybe)
 import Data.Void
 import System.Environment
@@ -20,7 +19,7 @@ import Text.Megaparsec
 import qualified Text.Megaparsec.Char as C
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Printf
-import Prelude hiding (lookup)
+import Prelude
 
 newtype Ix = Ix Int deriving (Eq, Show, Num) via Int
 newtype Lvl = Lvl Int deriving (Eq, Ord, Show, Num) via Int
@@ -59,6 +58,10 @@ data Raw
   | RTiny0 | RTiny1
   | RPath Raw Raw
   -- RLam and RApp are reused for paths
+  -- TODO explicit line of types
+  -- | RDepPath Name Raw Raw Raw
+  -- TODO explicit endpoints:
+  -- | RPLam Name Raw Raw Raw
   deriving (Show)
 
 -- core syntax
@@ -239,7 +242,7 @@ instance CoApply RootClosure Lvl Val where
     let ?env = cloenv { envFresh = max (envFresh cloenv) ?fresh }
     in defineUnit lvl (eval t)
 
-appRootClosureStuck :: FreshArg => EnvArg Val => RootClosure -> Val
+appRootClosureStuck :: FreshArg => RootClosure -> Val
 appRootClosureStuck (RootClosure cloenv t) =
   let ?env = cloenv { envFresh = max (envFresh cloenv) ?fresh }
   in defineStuck (eval t)
@@ -621,7 +624,6 @@ report msg = Left (msg, ?pos)
 check :: FreshArg => EnvArg Val => LocalsArg => (?pos :: SourcePos) =>  Raw -> VTy -> M Tm
 check t a = case (t, a) of
 -- check t a = traceShow ("check", t, a) $ case (t, a) of
-  -- (RSrcPos pos t, a) -> check (ctx {pos = pos}) t a
   (RSrcPos pos t, a) -> let ?pos = pos in check t a
 
   (RLet x ty t u, a') -> do
@@ -662,7 +664,6 @@ check t a = case (t, a) of
 infer :: FreshArg => EnvArg Val => LocalsArg => (?pos :: SourcePos) =>  Raw -> M (Tm, VTy)
 infer r = case r of
 -- infer r = traceShow ("infer", r) $ case r of
--- infer ctx r = traceShow (ctx, r) $ case r of
   RSrcPos pos t -> let ?pos = pos in infer t
 
   RU -> pure (U, VU)   -- U : U rule
