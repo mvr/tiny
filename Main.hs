@@ -528,7 +528,7 @@ quoteNeutral (NVar x keys) = Var (lvl2Ix ?env x) (fmap quote keys)
 quoteNeutral (NApp f a) = App (quoteNeutral f) (quote a)
 quoteNeutral (NFst a) = Fst (quoteNeutral a)
 quoteNeutral (NSnd a) = Snd (quoteNeutral a)
-quoteNeutral (NRootElim bt@(BindTiny l lvl r)) = RootElim l (freshLvl $ \fr -> define (makeVarLvl fr) (quoteNeutral (apply bt fr)))
+quoteNeutral (NRootElim bt@(BindTiny l lvl r)) = RootElim l (let lvl :: Lvl; lvl = Lvl $ envLength ?env in define (makeVarLvl lvl) $ quoteNeutral (apply bt lvl))
 quoteNeutral (NPApp p t a0 a1) = PApp (quoteNeutral p) (quote t) (quote a0) (quote a1)
 
 nf :: FreshArg => EnvArg Val => Tm -> Tm
