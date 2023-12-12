@@ -217,16 +217,17 @@ data Neutral
 data Normal = Normal {nfTy :: VTy, nfTerm :: Val}
   deriving (Show)
 
+infixl 8 ∙
 class Apply a b c | a -> b c where
-  apply :: FreshArg  => a -> b -> c
+  (∙) :: FreshArg => a -> b -> c
 
 instance Apply Closure Val Val where
-  apply (Closure cloenv t) u =
+  (Closure cloenv t) ∙ u =
     let ?env = cloenv { envFresh = max (envFresh cloenv) ?fresh }
     in define u (eval t)
 
 instance (Renameable a) => Apply (BindTiny a) Lvl a where
-  apply (BindTiny l i a) j
+  (BindTiny l i a) ∙ j
     | i == j    = a
     | otherwise = rename j i a
 
@@ -299,7 +300,7 @@ instance Keyable RootClosure where
   addKeys ks (RootClosure env t) = RootClosure (addKeys ks env) t
 
 instance (Keyable a, Renameable a) => Keyable (BindTiny a) where
-  addKeys ks bt@(BindTiny l lvl n) = freshLvl $ \fr -> BindTiny l fr (addKeys ks (apply bt fr))
+  addKeys ks bt@(BindTiny l lvl n) = freshLvl $ \fr -> BindTiny l fr (addKeys ks (bt ∙ fr))
 
 instance Keyable v => Keyable (EnvVars v) where
   addKeys ks EnvEmpty = EnvEmpty
@@ -335,10 +336,10 @@ instance Substitutable Neutral Val where
   sub v i = \case
     var@(NVar j ks) | i == j -> addKeys (fmap (sub v i) ks) v
                     | otherwise -> VNeutral (NVar j (fmap (sub v i) ks))
-    NApp f a -> apply (sub v i f) (sub v i a)
+    NApp f a -> sub v i f ∙ sub v i a
     NFst a -> doFst (sub v i a)
     NSnd b -> doSnd (sub v i b)
-    NRootElim bt -> freshLvl $ \fr -> doRootElim (sub v i (apply bt fr)) fr
+    NRootElim bt -> freshLvl $ \fr -> doRootElim (sub v i (bt ∙ fr)) fr
     NPApp p t a0 a1 -> doPApp (sub v i p) (sub v i t) (sub v i a0) (sub v i a1)
 
 instance Substitutable Normal Val where
@@ -351,7 +352,7 @@ instance Substitutable RootClosure RootClosure where
   sub v i (RootClosure env t) = RootClosure (sub v i env) t
 
 instance Substitutable (BindTiny Neutral) (BindTiny Val) where
-  sub v i bt@(BindTiny l lvl n) = freshLvl $ \fr -> BindTiny l fr (sub v i (apply bt fr))
+  sub v i bt@(BindTiny l lvl n) = freshLvl $ \fr -> BindTiny l fr (sub v i (bt ∙ fr))
 
 -- instance Substitutable v v' => Substitutable (Env v) (Env v') where
 instance Substitutable (EnvVars Val) (EnvVars Val) where
@@ -405,7 +406,7 @@ instance Renameable RootClosure where
 
 instance Renameable a => Renameable (BindTiny a) where
   rename v i bt@(BindTiny l j a)
-    | v == j = freshLvl $ \fr -> BindTiny l fr (rename v i (apply bt fr))
+    | v == j = freshLvl $ \fr -> BindTiny l fr (rename v i (bt ∙ fr))
     | otherwise = BindTiny l j (rename v i a)
 
 instance Renameable v => Renameable (EnvVars v) where
@@ -423,12 +424,12 @@ instance Renameable (Env Val) where
 ------------------------------------------------------------
 
 doApp :: FreshArg => Val -> Val -> Val
-doApp (VLam _ t) u = apply t u
+doApp (VLam _ t) u = t ∙ u
 doApp (VNeutral ne) a = VNeutral (NApp ne a)
 doApp t u = error $ "Unexpected in App: " ++ show t ++ " applied to " ++ show u
 
 instance Apply Val Val Val where
-  apply = doApp
+  (∙) = doApp
 
 doFst :: Val -> Val
 doFst (VPair a b) = a
@@ -454,7 +455,7 @@ doRootElimEta r = freshLvl $ \fr -> doRootElim (addKey (makeVarLvl fr) r) fr
 doPApp :: FreshArg => Val -> Val -> Val -> Val -> Val
 doPApp p VTiny0 a0 a1 = a0
 doPApp p VTiny1 a0 a1 = a1
-doPApp (VPLam x c _ _) t a0 a1 = apply c t
+doPApp (VPLam x c _ _) t a0 a1 = c ∙ t
 doPApp (VNeutral ne) t a0 a1 = VNeutral (NPApp ne t a0 a1)
 doPApp v _ _ _ = error $ "Unexpected in papp: " ++ show v
 
@@ -474,7 +475,7 @@ eval t = case t of
 
   Pi x a b                    -> VPi x (eval a) (Closure ?env b)
   Lam x t                     -> VLam x (Closure ?env t)
-  App t u                     -> apply (eval t) (eval u)
+  App t u                     -> eval t ∙ eval u
 
   Sg x a b                    -> VSg x (eval a) (Closure ?env b)
   Pair a b                    -> VPair (eval a) (eval b)
@@ -498,16 +499,16 @@ quote :: FreshArg => EnvArg Val => Val -> Tm
 -- quote v = traceShow ("quote", ?env, v) $ case v of
 quote = \case
   VU                           -> U
-  VPi x a b                    -> Pi x (quote a) (nextVar \var -> quote (apply b var))
-  VSg x a b                    -> Sg x (quote a) (nextVar \var -> quote (apply b var))
+  VPi x a b                    -> Pi x (quote a) (nextVar \var -> quote (b ∙ var))
+  VSg x a b                    -> Sg x (quote a) (nextVar \var -> quote (b ∙ var))
 
   ---- New:
   VTiny                        -> Tiny
   VRoot a                      -> Root (defineStuck (quote (appRootClosureStuck a)))
 
-  VPath x a a0 a1              -> Path x (nextVar \var -> quote (apply a var)) (quote a0) (quote a1)
+  VPath x a a0 a1              -> Path x (nextVar \var -> quote (a ∙ var)) (quote a0) (quote a1)
 
-  (VLam x c)         -> Lam x (nextVar \var -> quote (apply c var))
+  (VLam x c)         -> Lam x (nextVar \var -> quote (c ∙ var))
 
   (VPair fst snd)    -> Pair (quote fst) (quote snd)
 
@@ -517,7 +518,7 @@ quote = \case
 
   VTiny0                       -> Tiny0
   VTiny1                       -> Tiny1
-  (VPLam x p a0 a1)            -> PLam x (nextVar \var -> quote (apply p var)) (quote a0) (quote a1)
+  (VPLam x p a0 a1)            -> PLam x (nextVar \var -> quote (p ∙ var)) (quote a0) (quote a1)
 
   (VNeutral ne)              -> quoteNeutral ne
 
@@ -528,7 +529,7 @@ quoteNeutral (NVar x keys) = Var (lvl2Ix ?env x) (fmap quote keys)
 quoteNeutral (NApp f a) = App (quoteNeutral f) (quote a)
 quoteNeutral (NFst a) = Fst (quoteNeutral a)
 quoteNeutral (NSnd a) = Snd (quoteNeutral a)
-quoteNeutral (NRootElim bt@(BindTiny l lvl r)) = RootElim l (let lvl :: Lvl; lvl = Lvl $ envLength ?env in define (makeVarLvl lvl) $ quoteNeutral (apply bt lvl))
+quoteNeutral (NRootElim bt@(BindTiny l lvl r)) = RootElim l (let lvl :: Lvl; lvl = Lvl $ envLength ?env in define (makeVarLvl lvl) $ quoteNeutral (bt ∙ lvl))
 quoteNeutral (NPApp p t a0 a1) = PApp (quoteNeutral p) (quote t) (quote a0) (quote a1)
 
 nf :: FreshArg => EnvArg Val => Tm -> Tm
@@ -541,18 +542,18 @@ eq :: FreshArg => EnvArg Val => Val -> Val -> Bool
 -- eq p1 p2 | traceShow ("eq:", p1, p2) False = undefined
 eq VU VU = True
 eq (VNeutral ne1) (VNeutral ne2) = eqNE ne1 ne2
-eq (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) = eq aty1 aty2 && nextVar \var -> eq (apply bclo1 var) (apply bclo2 var)
-eq (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) = eq aty1 aty2 && nextVar \var -> eq (apply bclo1 var) (apply bclo2 var)
+eq (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) = eq aty1 aty2 && nextVar \var -> eq (bclo1 ∙ var) (bclo2 ∙ var)
+eq (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) = eq aty1 aty2 && nextVar \var -> eq (bclo1 ∙ var) (bclo2 ∙ var)
 eq VTiny VTiny = True
 eq (VRoot a) (VRoot a') = defineStuck $ eq (appRootClosureStuck a) (appRootClosureStuck a')
 eq (VPath _ c a0 a1) (VPath _ c' a0' a1') =
-  (nextVar \var -> eq (apply c var) (apply c' var))
+  (nextVar \var -> eq (c ∙ var) (c' ∙ var))
     && eq a0 a0'
     && eq a1 a1'
 
-eq (VLam x b) (VLam x' b') = nextVar \var -> eq (apply b var) (apply b' var)
-eq (VLam x b) f' = nextVar \var -> eq (apply b var) (apply f' var)
-eq f (VLam x' b') = nextVar \var -> eq (apply f var) (apply b' var)
+eq (VLam x b) (VLam x' b') = nextVar \var -> eq (b ∙ var) (b' ∙ var)
+eq (VLam x b) f' = nextVar \var -> eq (b ∙ var) (f' ∙ var)
+eq f (VLam x' b') = nextVar \var -> eq (f ∙ var) (b' ∙ var)
 
 eq (VPair a1 b1) (VPair a2 b2) = eq a1 a2 && eq b1 b2
 eq (VPair a1 b1) p2 = eq a1 (doFst p2) && eq b1 (doSnd p2)
@@ -562,9 +563,9 @@ eq (VRootIntro a1) (VRootIntro a2) = defineStuck $ eq (appRootClosureStuck a1) (
 eq (VRootIntro a1) r2 = defineStuck $ eq (appRootClosureStuck a1) (doRootElimEta r2)
 eq r1 (VRootIntro a2) = defineStuck $ eq (doRootElimEta r1) (appRootClosureStuck a2)
 
-eq (VPLam x a a0 a1) (VPLam x' a' _ _) = nextVar \var -> eq (apply a var) (apply a' var)
-eq (VPLam x a a0 a1) p' = nextVar \var -> eq (apply a var) (apply p' var)
-eq p (VPLam x' a' a0 a1) = nextVar \var -> eq (apply p var) (apply a' var)
+eq (VPLam x a a0 a1) (VPLam x' a' _ _) = nextVar \var -> eq (a ∙ var) (a' ∙ var)
+eq (VPLam x a a0 a1) p' = nextVar \var -> eq (a ∙ var) (p' ∙ var)
+eq p (VPLam x' a' a0 a1) = nextVar \var -> eq (p ∙ var) (a' ∙ var)
 eq _ _ = False
 
 eqNE :: FreshArg => EnvArg Val => Neutral -> Neutral -> Bool
@@ -573,7 +574,7 @@ eqNE (NVar i ikeys) (NVar j jkeys) = i == j && all (uncurry eq) (zip ikeys jkeys
 eqNE (NApp f1 a1) (NApp f2 a2) = eqNE f1 f2 && eq a1 a2
 eqNE (NFst p1) (NFst p2) = eqNE p1 p2
 eqNE (NSnd p1) (NSnd p2) = eqNE p1 p2
-eqNE (NRootElim tb1) (NRootElim tb2) = freshLvl \fr -> define (makeVarLvl fr) $ eqNE (apply tb1 fr) (apply tb2 fr)
+eqNE (NRootElim tb1) (NRootElim tb2) = freshLvl \fr -> define (makeVarLvl fr) $ eqNE (tb1 ∙ fr) (tb2 ∙ fr)
 eqNE (NPApp f1 a1 _ _) (NPApp f2 a2 _ _) = eqNE f1 f2 && eq a1 a2
 eqNE ne1 ne2 = False
 
@@ -632,11 +633,11 @@ check t a = case (t, a) of
     pure (Let x ty t u)
 
   (RLam x t, VPi x' a b) ->
-    Lam x <$> ctxNextVar x a (\var -> check t (apply b var))
+    Lam x <$> ctxNextVar x a (\var -> check t (b ∙ var))
 
   (RPair a b, VSg x aty bty) -> do
     a <- check a aty
-    b <- check b (apply bty (eval a))
+    b <- check b (bty ∙ eval a)
     pure (Pair a b)
 
   ---- New:
@@ -645,7 +646,7 @@ check t a = case (t, a) of
     -> RootIntro <$> ctxDefineStuck (check t (appRootClosureStuck a))
 
   (RLam x t, VPath x' c a0 a1) -> do
-    t <- ctxNextVar x VTiny (\var -> check t (apply c var))
+    t <- ctxNextVar x VTiny (\var -> check t (c ∙ var))
     unless (eq a0 (define VTiny0 (eval t))
          && eq a1 (define VTiny1 (eval t))) $
       report "endpoint mismatch: "
@@ -684,7 +685,7 @@ infer r = case r of
     case tty of
       VPi _ a b -> do
         u <- check u a
-        pure (App t u, apply b (eval u))
+        pure (App t u, b ∙ eval u)
       tty ->
         report $ "Expected a function type, instead inferred:\n\n  " ++ "todo" -- showVal ctx tty
 
@@ -706,7 +707,7 @@ infer r = case r of
   RSnd p -> do
     (t, ty) <- infer p
     case ty of
-      VSg x a b -> pure (Snd t, apply b (eval (Fst t)))
+      VSg x a b -> pure (Snd t, b ∙ eval (Fst t))
       _ -> report "expected Sg type"
 
   ---- New:
