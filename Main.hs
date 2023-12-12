@@ -594,11 +594,13 @@ type LocalsArg = (?locals :: Locals)
 -- data Ctx = Ctx {env :: Env (Name, Val, VTy), pos :: SourcePos}
 --   deriving (Show)
 
-withEmptyCtx :: (FreshArg => EnvArg v => LocalsArg => a) -> a
-withEmptyCtx a = let ?fresh = 0
-                     ?env = emptyEnv
-                     ?locals = LocalsEmpty
-                 in a
+withEmptyCtx :: SourcePos -> (FreshArg => EnvArg v => LocalsArg => (?pos :: SourcePos) => a) -> a
+withEmptyCtx pos a =
+  let ?fresh = 0
+      ?env = emptyEnv
+      ?locals = LocalsEmpty
+      ?pos = pos
+  in a
 
 ctxDefine :: Name -> v -> VTy -> (FreshArg => EnvArg v => LocalsArg => a) -> (FreshArg => EnvArg v => LocalsArg => a)
 ctxDefine x v ty act = define v $ let ?locals = LocalsVal x ty ?locals in act
@@ -612,14 +614,14 @@ ctxDefineStuck act = defineStuck $ let ?locals = LocalsLock ?locals in act
 ctxNextVar :: Name -> VTy -> (FreshArg => EnvArg Val => LocalsArg => Val -> a) -> (FreshArg => EnvArg Val => LocalsArg => a)
 ctxNextVar x ty act =  let ?locals = LocalsVal x ty ?locals in nextVar act
 
-report :: String -> M a
-report msg = Left (msg, undefined)
+report :: (?pos :: SourcePos) => String -> M a
+report msg = Left (msg, ?pos)
 
-check :: FreshArg => EnvArg Val => LocalsArg => Raw -> VTy -> M Tm
+check :: FreshArg => EnvArg Val => LocalsArg => (?pos :: SourcePos) =>  Raw -> VTy -> M Tm
 check t a = case (t, a) of
 -- check t a = traceShow ("check", t, a) $ case (t, a) of
   -- (RSrcPos pos t, a) -> check (ctx {pos = pos}) t a
-  (RSrcPos pos t, a) -> check t a
+  (RSrcPos pos t, a) -> let ?pos = pos in check t a
 
   (RLet x ty t u, a') -> do
     ty <- check ty VU
@@ -656,12 +658,11 @@ check t a = case (t, a) of
      report ("type mismatch: " ++ show tty  ++ ", " ++ show a)
     pure t
 
-infer :: FreshArg => EnvArg Val => LocalsArg => Raw -> M (Tm, VTy)
+infer :: FreshArg => EnvArg Val => LocalsArg => (?pos :: SourcePos) =>  Raw -> M (Tm, VTy)
 infer r = case r of
 -- infer r = traceShow ("infer", r) $ case r of
 -- infer ctx r = traceShow (ctx, r) $ case r of
-  -- RSrcPos pos t -> infer (ctx {pos = pos}) t
-  RSrcPos pos t -> infer t
+  RSrcPos pos t -> let ?pos = pos in infer t
 
   RU -> pure (U, VU)   -- U : U rule
 
@@ -844,8 +845,8 @@ ws :: Parser ()
 ws = L.space C.space1 (L.skipLineComment "--") (L.skipBlockComment "{-" "-}")
 
 withPos :: Parser Raw -> Parser Raw
--- withPos p = RSrcPos <$> getSourcePos <*> p
-withPos p = p
+withPos p = RSrcPos <$> getSourcePos <*> p
+-- withPos p = p
 
 lexeme   = L.lexeme ws
 symbol s = lexeme (C.string s)
@@ -1011,17 +1012,17 @@ mainWith getOpt getRaw = do
   getOpt >>= \case
     ["nf"]   -> do
       (t, file) <- getRaw
-      case withEmptyCtx (infer t) of
+      case withEmptyCtx (initialPos file) (infer t) of
         Left err -> displayError file err
         Right (t, a) -> do
-          print $ withEmptyCtx (nf t)
+          print $ withEmptyCtx (initialPos file) (nf t)
           putStrLn "  :"
-          print $ withEmptyCtx (quote a)
+          print $ withEmptyCtx (initialPos file) (quote a)
     ["type"] -> do
       (t, file) <- getRaw
-      case withEmptyCtx (infer t) of
+      case withEmptyCtx (initialPos file) (infer t) of
         Left err     -> displayError file err
-        Right (t, a) -> print $ withEmptyCtx (quote a)
+        Right (t, a) -> print $ withEmptyCtx (initialPos file) (quote a)
     _ -> putStrLn "unknown option"
 
 main :: IO ()
