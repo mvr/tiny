@@ -10,9 +10,6 @@ let comp : (A : U) (B : U) (C : U)
     -> (A -> C)    
   := \A B C f g x. f (g x);
 
-let iterated : T -> v/ (T -> T)
-    := \i. rintro (\j. i[i[i[i[j]]]]);
-
 let extract : (A : v/ U)
     -> (v/ relim i. A[i]) 
     -> relim i. A
@@ -23,41 +20,23 @@ let duplicate : (A : v/ U)
     -> (v/ v/ relim i. A[i, i]) 
   := \A r. rintro rintro relim i. r[i, i];
 
-let iterated : T -> v/ (T -> T)
+let iteratedkeys : T -> v/ (T -> T)
   := \i. rintro (\j. i[i[i[i[j]]]]);
 
-let func : (A : v/ U) (B : v/ U)
+let functorial : (A : v/ U) (B : v/ U)
     -> (v/ ((relim i. A[i]) -> (relim i. B[i]))) 
     -> (v/ (relim i. A[i])) -> (v/ relim i. B[i])
   := \A B f r. rintro (relim i. f[i]) (relim i. r[i]);
 
-let eta : (A : U)
-    -> A -> v/ ((i : T) -> A[i])
-  := \A x. rintro \i. x[i];
+let preserve_sigma : (A : v/ U) (B : v/ (relim i. A[i]) -> U) 
+    -> (v/ (x : relim i. A[i]) * (relim i. B[i]) x)
+    -> (x : v/ relim i. A[i]) * v/ (relim i. B[i]) (relim i. x[i])
 
-let epsilon : (B : T -> v/ U)
-    -> ((t : T) -> v/ relim j. B[j] t[j])
-    -> relim j. B j
-  := \B f. relim i. f(i);
+    := \A B r. < rintro fst relim i. r[i], rintro snd relim i. r[i] >;
 
-let conj_left_nondep : (A : U) (B : v/ U)
-    -> (v/ ((t : T) -> A[t]) -> relim i. B[i])
-    -> (A -> v/ relim i. B[i])
-  := \A B g a. rintro (relim i. g[i]) (\j. a[j]);
+let preserve_sigma_inv : (A : v/ U) (B : v/ (relim i. A[i]) -> U) 
+    -> ((x : v/ relim i. A[i]) * v/ (relim i. B[i]) (relim i. x[i]))
+    -> (v/ (x : relim i. A[i]) * (relim i. B[i]) x)
+    := \A B p. rintro < relim i. fst p[i] , relim i. snd p[i] >;
 
-let conj_right_nondep : (A : U) (B : v/ U)
-    -> (A -> v/ relim i. B[i])
-    -> (v/ ((t : T) -> A[t]) -> relim i. B[i])
-  := \A B f. rintro \h. relim k. f[k] (h k);
-
-let conj_left : (A : U) (B : A -> v/ U)
-    -> (v/ (h : (t : T) -> A[t]) -> relim i. B[i] (h i))
-    -> ((a : A) -> v/ relim i. B[i] a[i])
-  := \A B g a. rintro (relim i. g[i]) (\j. a[j]);
-
-let conj_right : (A : U) (B : A -> v/ U)
-    -> ((a : A) -> v/ relim i. B[i] a[i])
-    -> (v/ ((h : (t : T) -> A[t]) -> relim i. B[i] (h i)))
-  := \A B f. rintro \h. relim k. f[k] (h k);
-
-conj_right
+T

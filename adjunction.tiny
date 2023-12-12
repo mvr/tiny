@@ -1,0 +1,33 @@
+let refl : (A : U) -> (x : A) -> Path x x
+    := \A x i. x;
+
+let eta : (A : U)
+    -> A -> v/ ((i : T) -> A[i])
+  := \A x. rintro \i. x[i];
+
+let epsilon : (B : T -> v/ U)
+    -> ((t : T) -> v/ relim j. B[j] t[j])
+    -> relim j. B j
+  := \B f. relim i. f(i);
+
+let transpose_left : (A : U) (B : A -> v/ U)
+    -> ((a : A) -> v/ relim i. B[i] a[i])
+    -> (v/ ((h : (t : T) -> A[t]) -> relim i. B[i] (h i)))
+  := \A B f. rintro \h. relim k. f[k] (h k);
+
+let transpose_right : (A : U) (B : A -> v/ U)
+    -> (v/ (h : (t : T) -> A[t]) -> relim i. B[i] (h i))
+    -> ((a : A) -> v/ relim i. B[i] a[i])
+  := \A B g a. rintro (relim i. g[i]) (\j. a[j]);
+
+let inv_left : (A : U) (B : A -> v/ U)
+    -> (f : (a : A) -> v/ relim i. B[i] a[i])
+    -> Path f (transpose_right A B (transpose_left A B f))
+  := \A B f. refl ((a : A) -> v/ relim i. B[i] a[i]) f;
+
+let inv_right : (A : U) (B : A -> v/ U)
+    -> (g : v/ (h : (t : T) -> A[t]) -> relim i. B[i] (h i))
+    -> Path g (transpose_left A B (transpose_right A B g))
+  := \A B g. refl (v/ (h : (t : T) -> A[t]) -> relim i. B[i] (h i)) g;
+    
+inv_right
