@@ -49,7 +49,7 @@
 \FXRegisterAuthor{mvr}{anmvr}{\color{blue}MVR}
 
 \usepackage[style=alphabetic, maxbibnames=99, maxalphanames=99, mincrossrefs=99]{biblatex}
-\addbibresource{tiny.bib}
+\addbibresource{types.bib}
 
 \usepackage{hyperref}
 \usepackage[capitalise,noabbrev]{cleveref}
@@ -149,8 +149,15 @@
   {\scalebox{0.8}{\text{\faKey}}} {\scalebox{0.8}{\text{\faKey}}}
   {\scalebox{0.5}{\text{\faKey}}} {\scalebox{0.4}{\text{\faKey}}} }
 
-\newcommand{\rbindsym}{\raisebox{-0.5pt}{\scalerel*{\reflectbox{\rotatebox[origin=c]{185}{$\lambda$}}}{\lambda}}}
-% \newcommand{\rbindsym}{\raisebox{-0.55pt}{\scalerel*{\rotatebox[origin=c]{185}{$\lambda$}}{\lambda}}\hspace{-0.06em}}
+
+\newcommand{\rbindsym}{%
+  \mathchoice
+    {\reflectbox{\rotatebox[origin=c]{185}{$\lambda$}}}  % display
+    {\reflectbox{\rotatebox[origin=c]{185}{$\lambda$}}}  % text
+    {\reflectbox{\rotatebox[origin=c]{185}{$\scriptstyle\lambda$}}}  % script
+    {\reflectbox{\rotatebox[origin=c]{185}{$\scriptscriptstyle\lambda$}}}  % scriptscript
+  }
+
 \newcommand{\rbind}[1]{\rbindsym{} #1.}
 % lol
 % \newcommand{\rbind}[1]{. #1 \rbindsym{}}
@@ -165,21 +172,20 @@
 \newcommand{\ctxlocke}[1]{\lock_{#1}}
 \newcommand{\ctxlock}[1]{\ctxlocke{\lockn{#1}}}
 % \newcommand{\ctxopen}[2]{\unlock_{\lockn{#1}}^{\,#2}}
-\newcommand{\stubra}[1]{\llbracket #1 \rrbracket}
+% \newcommand{\stubra}[1]{\llbracket #1 \rrbracket}
 % \newcommand{\stubra}[1]{\lfloor #1 \rfloor}
-\newcommand{\admbra}[1]{[ #1 ]}
-\newcommand{\subkeyoe}[2]{#1/\key_{#2}}
-\newcommand{\subkeyo}[2]{\subkeyoe{#1}{\lockn{#2}}}
-\newcommand{\subkeye}[2]{\admbra{\subkeyoe{#1}{#2}}}
+\newcommand{\stubra}[1]{\{\!\!\{ #1 \}\!\!\}}
+% \newcommand{\admbra}[1]{[ #1 ]}
+\newcommand{\admbra}[1]{\{\mkern-1mu #1 \mkern-0.5mu\}}
+% \newcommand{\subkeyoe}[2]{#1/\key_{#2}}
+\newcommand{\subkeysep}[2]{#1/#2}
+\newcommand{\subkeyo}[2]{\subkeysep{#1}{\lockn{#2}}}
 \newcommand{\subkey}[2]{\admbra{\subkeyo{#1}{#2}}}
-\newcommand{\subkeyeann}[5]{\admbra{\key(#3; #1/#2; #4; #5)}}
-\newcommand{\subkeyann}[5]{\subkeyeann{#1}{\lockn{#2}}{#3}{#4}{#5}}
-\newcommand{\subkeyetele}[4]{\admbra{\key(#3; #1/#2; #4)}}
-\newcommand{\subkeytele}[4]{\subkeyetele{#1}{\lockn{#2}}{#3}{#4}}
-\newcommand{\substucke}[2]{\stubra{#1/\key_{#2}}}
-\newcommand{\substuck}[2]{\substucke{#1}{\lockn{#2}}}
+% \newcommand{\substucke}[2]{\stubra{#1/\key_{#2}}}
+\newcommand{\substuck}[2]{\stubra{#1/\lockn{#2}}}
 % \newcommand{\sublock}[2]{\admbra{\lock_{\lockn{#1}}/#2}}
-\newcommand{\sublock}[2]{\admbra{\rbindsym{} #1. /\lock_{\lockn{#2}} }}
+% \newcommand{\sublock}[2]{\admbra{\rbindsym{} #1. /\lock_{\lockn{#2}} }}
+\newcommand{\sublock}[2]{\admbra{\rbindsym{} #1. /\lockn{#2} }}
 % \newcommand{\sublock}[2]{\admbra{ .#2 \rbindsym{} /\lock_{\lockn{#1}} }}
 
 \newcommand{\rformsym}{\surd}
@@ -214,8 +220,8 @@
 \newcommand{\Int}{\mathbb{I}}
 \DeclareMathOperator{\isFib}{\mathsf{isFib}}
 \DeclareMathOperator{\Fib}{\mathsf{Fib}}
-\DeclareMathOperator{\isNewFib}{\mathsf{isNewFib}}
-\DeclareMathOperator{\NewFib}{\mathsf{NewFib}}
+\DeclareMathOperator{\isAFib}{\mathsf{isAFib}}
+\DeclareMathOperator{\AFib}{\mathsf{AFib}}
 \newcommand{\Compstr}{\mathsf{C}}
 
 \title{A Type Theory with a Tiny Object}
@@ -356,7 +362,7 @@ inclusion modality $\flat$. Internally, this manifests as an
 equivalence
 ${\flat(A \to \rformu B) \equiv \flat((\Tiny \to A) \to B)}$. An
 alternative axiomatisation that is coherent for higher types is given
-in~\cite[Appendix A]{david:microlinear}, by instead asserting for each
+in~\cite[Appendix A]{jaz:microlinear}, by instead asserting for each
 crisp type $B$ a counit map $(\Tiny \to \rformu B) \to B$ such that
 the induced map
 ${\flat(A \to \rformu B) \to \flat((\Tiny \to A) \to B)}$ is an
@@ -392,10 +398,9 @@ A benefit of these previous systems is that the precise notion of
 tininess is easier to tweak. For example, whenever $\C$ is monoidal,
 representable presheaves on $\C$ are \emph{monoidally tiny} in that
 $(\Tiny \lolli -)$ has a right adjoint, where $\lolli$ denotes the Day
-internal hom. This non-cartesian tininess is central to forthcoming
-work on Higher Observational Type
-Theory~\cite{mike:observational-day3}, whose intended semantics are in
-a non-cartesian cube category.
+internal hom. This non-cartesian tininess is central to Higher
+Observational Type Theory~\cite{mike:observational-day3}, whose
+intended semantics are in a non-cartesian cubical category.
 
 \paragraph{Contributions.}
 
@@ -451,7 +456,7 @@ not require the presence of any other type-formers.
 
 The $\rformu$ type-former will be added by making it right adjoint to
 a judgemental version of ``$\Tiny \to \Gamma$'' which we write as
-$\Gamma, \ctxlock{L}$. Here, to refer to it later, the lock is
+$\Gamma, \ctxlock{L}$. Here, so that we may refer to it, the lock is
 annotated with a `lock name' $\lockn{L}$. This first section will be
 spent adding the necessary rules for the context $\Gamma, \ctxlock{L}$
 to behave like functions into $\Gamma$.
@@ -488,8 +493,9 @@ We now describe the additions to MLTT one rule at a time.
 \begin{mathpar}
   \inferrule*[left=tiny-form]{~}{\Gamma \yields \Tiny \type}
 \end{mathpar}
-In applications, this will typically be an already-existing closed
-type rather than a new one asserted axiomatically.
+For applications in synthetic mathematics, this will often be an
+internally definable closed type rather than a new one asserted
+axiomatically.
 
 \paragraph{Context Locks.} There is a special context extension,
 \begin{mathpar}
@@ -546,17 +552,17 @@ The generalised rule is then:
   \inferrule*[left=counit-tele,fraction={-{\,-\,}-}]
   {\Gamma \yields \Gamma'' \tele \and \Gamma, \Gamma' \yields t_i : \Tiny
     \text{ for } \lockn{L}_i \in \locksin{\Gamma'} }
-  {\Gamma, \Gamma' \yields \Gamma'' \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} \tele} \and
+  {\Gamma, \Gamma' \yields \Gamma'' \admbra{\subkeysep{t_1}{\lockn{L}_1}, \dots, \subkeysep{t_n}{\lockn{L}_n}} \tele} \and
   \inferrule*[left=counit,fraction={-{\,-\,}-}]
   {\Gamma, \Gamma'' \yields a : A \and \Gamma, \Gamma' \yields t_i : \Tiny
     \text{ for } \lockn{L}_i \in \locksin{\Gamma'} }
-  {\Gamma, \Gamma', \Gamma'' \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} \yields a \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} : A \admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}} }
+  {\Gamma, \Gamma', \Gamma'' \admbra{\subkeysep{t_1}{\lockn{L}_1}, \dots, \subkeysep{t_n}{\lockn{L}_n}} \yields a \admbra{\subkeysep{t_1}{\lockn{L}_1}, \dots, \subkeysep{t_n}{\lockn{L}_n}} : A \admbra{\subkeysep{t_1}{\lockn{L}_1}, \dots, \subkeysep{t_n}{\lockn{L}_n}} }
 \end{mathpar}
 
 Because we will so often be working with a sequence of terms and
 locks, we will abbreviate
-$\admbra{\subkeyoe{t_1}{\lockn{L}_1}, \dots,
-  \subkeyoe{t_n}{\lockn{L}_n}}$ to simply
+$\admbra{\subkeysep{t_1}{\lockn{L}_1}, \dots,
+  \subkeysep{t_n}{\lockn{L}_n}}$ to simply
 $\subkey{\vec{t}}{L}$.
 
 Formally, the telescope $\Gamma''$ should be annotated in the syntax
@@ -591,11 +597,11 @@ term:
 
 % \begin{align*}
   %   \Gamma, \Gamma'[a/x] 
-  %   &\yields y \stubra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}}[a/x] \\
-%   &:\defeq y \stubra{\subkeyoe{t_1[a/x]}{\lockn{L}_1}, \dots, \subkeyoe{t_n[a/x]}{\lockn{L}_n}} \\
+  %   &\yields y \stubra{\subkeysep{t_1}{\lockn{L}_1}, \dots, \subkeysep{t_n}{\lockn{L}_n}}[a/x] \\
+%   &:\defeq y \stubra{\subkeysep{t_1[a/x]}{\lockn{L}_1}, \dots, \subkeysep{t_n[a/x]}{\lockn{L}_n}} \\
 %   \Gamma, \Gamma'[a/x]
-%   &\yields x \stubra{\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}}[a/x] \\
-%   &:\defeq a\admbra{\subkeyoe{t_1[a/x]}{\lockn{L}_1}, \dots, \subkeyoe{t_n[a/x]}{\lockn{L}_n}}
+%   &\yields x \stubra{\subkeysep{t_1}{\lockn{L}_1}, \dots, \subkeysep{t_n}{\lockn{L}_n}}[a/x] \\
+%   &:\defeq a\admbra{\subkeysep{t_1[a/x]}{\lockn{L}_1}, \dots, \subkeysep{t_n[a/x]}{\lockn{L}_n}}
 % \end{align*}
 
 \paragraph{Computing the Counit.} We will now explain how the
@@ -619,14 +625,14 @@ is when $x : A$ is in $\Gamma$, so the variable usage looks like
 \end{align*}  
 % \begin{align*}
 %   \Gamma_1, x : A, \Gamma_2, \Gamma''
-%   &\yields x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
-%   \subkeyoe{j_{m}}{\lockn{J}_{m}},
-%   \subkeyoe{k_1}{\lockn{K}_{1}},
-%   \dots, \subkeyoe{k_n}{\lockn{K}_n}} \\
-%   &: A \admbra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
-%   \subkeyoe{j_{m}}{\lockn{J}_{m}},
-%   \subkeyoe{k_1}{\lockn{K}_{1}},
-%   \dots, \subkeyoe{k_n}{\lockn{K}_n}}
+%   &\yields x \stubra{\subkeysep{j_1}{\lockn{J}_1}, \dots,
+%   \subkeysep{j_{m}}{\lockn{J}_{m}},
+%   \subkeysep{k_1}{\lockn{K}_{1}},
+%   \dots, \subkeysep{k_n}{\lockn{K}_n}} \\
+%   &: A \admbra{\subkeysep{j_1}{\lockn{J}_1}, \dots,
+%   \subkeysep{j_{m}}{\lockn{J}_{m}},
+%   \subkeysep{k_1}{\lockn{K}_{1}},
+%   \dots, \subkeysep{k_n}{\lockn{K}_n}}
 % \end{align*}
 where $\lockn{J}$ are the locks in $\Gamma_2$
 and $\lockn{K}$ are the locks in $\Gamma''$. The new $\subkey{t}{L}$ is slot into place, and left stuck:
@@ -637,16 +643,16 @@ and $\lockn{K}$ are the locks in $\Gamma''$. The new $\subkey{t}{L}$ is slot int
 \end{align*}
 % \begin{align*}
 %   \Gamma_1, x : A, \Gamma_2, \ctxlock{L}, \Gamma''\subkey{t}{L} \yields
-%   &x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
-%   \subkeyoe{j_{m}}{\lockn{J}_{m}},
-%   \subkeyoe{k_1}{\lockn{K}_{1}},
-%   \dots, \subkeyoe{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
+%   &x \stubra{\subkeysep{j_1}{\lockn{J}_1}, \dots,
+%   \subkeysep{j_{m}}{\lockn{J}_{m}},
+%   \subkeysep{k_1}{\lockn{K}_{1}},
+%   \dots, \subkeysep{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
 %   :\defeq {}
-%   &x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
-%   \subkeyoe{j_{m}}{\lockn{J}_{m}},
+%   &x \stubra{\subkeysep{j_1}{\lockn{J}_1}, \dots,
+%   \subkeysep{j_{m}}{\lockn{J}_{m}},
 %   \subkeyo{t}{L},
-%   \subkeyoe{k_1}{\lockn{K}_{1}},
-%   \dots, \subkeyoe{k_n}{\lockn{K}_n}}
+%   \subkeysep{k_1}{\lockn{K}_{1}},
+%   \dots, \subkeysep{k_n}{\lockn{K}_n}}
 % \end{align*}  
 
 When working informally, this means counting how many
@@ -693,19 +699,19 @@ $\Tiny$ are involved. Two complications can arise:
     x \stubra{\subkeyo{\vec{j}\subkey{t}{L}}{J}, \subkeyo{t}{L}, \subkeyo{\vec{k}\subkey{t}{L}}{K}}
   \end{align*}
   % \begin{alignat*}{2}
-  %   &x  \stubra{&&\subkeyoe{j_1}{\lockn{J}_1}, \dots,
-                     %                      \subkeyoe{j_{m}}{\lockn{J}_{m}},
-                     %                      \subkeyoe{k_1}{\lockn{K}_{1}},
-                     %                      \dots, \subkeyoe{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
+  %   &x  \stubra{&&\subkeysep{j_1}{\lockn{J}_1}, \dots,
+                     %                      \subkeysep{j_{m}}{\lockn{J}_{m}},
+                     %                      \subkeysep{k_1}{\lockn{K}_{1}},
+                     %                      \dots, \subkeysep{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
   %   :\defeq {}
   %   &x
-  %     \stubra{&& \subkeyoe{j_1\subkey{t}{L}}{\lockn{J}_1},   \\
+  %     \stubra{&& \subkeysep{j_1\subkey{t}{L}}{\lockn{J}_1},   \\
   %   &&& \dots, \\
-  %   &&& \subkeyoe{j_{m}\subkey{t}{L}}{\lockn{J}_{m}}, \\
+  %   &&& \subkeysep{j_{m}\subkey{t}{L}}{\lockn{J}_{m}}, \\
   %   &&& \subkeyo{t}{L}, \\
-  %   &&& \subkeyoe{k_{1}\subkey{t}{L}}{\lockn{K}_{1}}, \\
+  %   &&& \subkeysep{k_{1}\subkey{t}{L}}{\lockn{K}_{1}}, \\
   %   &&& \dots, \\
-  %   &&& \subkeyoe{k_n\subkey{t}{L}}{\lockn{K}_n}
+  %   &&& \subkeysep{k_n\subkey{t}{L}}{\lockn{K}_n}
   %       }
   % \end{alignat*}
 
@@ -718,19 +724,19 @@ $\Tiny$ are involved. Two complications can arise:
   \end{align*}
   
   % \begin{alignat*}{2}
-  %   &x  \stubra{&&\subkeyoe{j_1}{\lockn{J}_1}, \dots,
-  %                  \subkeyoe{j_{m}}{\lockn{J}_{m}},
-  %                  \subkeyoe{k_1}{\lockn{K}_{1}},
-  %                  \dots, \subkeyoe{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
+  %   &x  \stubra{&&\subkeysep{j_1}{\lockn{J}_1}, \dots,
+  %                  \subkeysep{j_{m}}{\lockn{J}_{m}},
+  %                  \subkeysep{k_1}{\lockn{K}_{1}},
+  %                  \dots, \subkeysep{k_n}{\lockn{K}_n}} \subkey{t}{L} \\
   %   :\defeq {}
   %   &x
-  %     \stubra{&& \subkeyoe{j_1\subkey{t}{L}}{\lockn{J}_1},   \\
+  %     \stubra{&& \subkeysep{j_1\subkey{t}{L}}{\lockn{J}_1},   \\
   %   &&& \dots, \\
-  %   &&& \subkeyoe{j_{m}\subkey{t}{L}}{\lockn{J}_{m}}, \\
-  %   &&& \subkeyo{t\admbra{\subkeyoe{k_1\subkey{t}{L}}{\lockn{K}_{1}}, \dots, \subkeyoe{k_n\subkey{t}{L}}{\lockn{K}_n}}}{L}, \\
-  %   &&& \subkeyoe{k_{1}\subkey{t}{L}}{\lockn{K}_{1}}, \\
+  %   &&& \subkeysep{j_{m}\subkey{t}{L}}{\lockn{J}_{m}}, \\
+  %   &&& \subkeyo{t\admbra{\subkeysep{k_1\subkey{t}{L}}{\lockn{K}_{1}}, \dots, \subkeysep{k_n\subkey{t}{L}}{\lockn{K}_n}}}{L}, \\
+  %   &&& \subkeysep{k_{1}\subkey{t}{L}}{\lockn{K}_{1}}, \\
   %   &&& \dots, \\
-  %   &&& \subkeyoe{k_n\subkey{t}{L}}{\lockn{K}_n}
+  %   &&& \subkeysep{k_n\subkey{t}{L}}{\lockn{K}_n}
   %       }
   % \end{alignat*}
   % \mvrnote{It's not so obvious to me that this terminates!}
@@ -883,23 +889,23 @@ into the other stuck counits.
 \end{align*}
 
 % \begin{align*}
-%   &i \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
-%   \subkeyoe{j_{m}}{\lockn{J}_{m}},
+%   &i \stubra{\subkeysep{j_1}{\lockn{J}_1}, \dots,
+%   \subkeysep{j_{m}}{\lockn{J}_{m}},
 %   \subkeyo{t}{L},
-%   \subkeyoe{k_1}{\lockn{K}_{1}},
-%   \dots, \subkeyoe{k_n}{\lockn{K}_n}}\sublock{i}{L} \\
+%   \subkeysep{k_1}{\lockn{K}_{1}},
+%   \dots, \subkeysep{k_n}{\lockn{K}_n}}\sublock{i}{L} \\
 %   :\defeq {}
 %   &t\sublock{i}{L} \\
-%   &x \stubra{\subkeyoe{j_1}{\lockn{J}_1}, \dots,
-%   \subkeyoe{j_{m}}{\lockn{J}_{m}},
+%   &x \stubra{\subkeysep{j_1}{\lockn{J}_1}, \dots,
+%   \subkeysep{j_{m}}{\lockn{J}_{m}},
 %   \subkeyo{t}{L},
-%   \subkeyoe{k_1}{\lockn{K}_{1}},
-%   \dots, \subkeyoe{k_n}{\lockn{K}_n}} \\
+%   \subkeysep{k_1}{\lockn{K}_{1}},
+%   \dots, \subkeysep{k_n}{\lockn{K}_n}} \\
 %   :\defeq {}
-%   &x\stubra{\subkeyoe{j_1\sublock{i}{L}}{\lockn{J}_1}, \dots,
-%   \subkeyoe{j_{m}\sublock{i}{L}}{\lockn{J}_{m}},
-%   \subkeyoe{k_1\sublock{i}{L}}{\lockn{K}_{1}},
-%   \dots, \subkeyoe{k_n\sublock{i}{L}}{\lockn{K}_n}}
+%   &x\stubra{\subkeysep{j_1\sublock{i}{L}}{\lockn{J}_1}, \dots,
+%   \subkeysep{j_{m}\sublock{i}{L}}{\lockn{J}_{m}},
+%   \subkeysep{k_1\sublock{i}{L}}{\lockn{K}_{1}},
+%   \dots, \subkeysep{k_n\sublock{i}{L}}{\lockn{K}_n}}
 % \end{align*}
 % \begin{align*}
 %   &x \stubra{\subkeye{s_1}{\lockn{K}_1}, \dots,
@@ -1199,12 +1205,10 @@ And similarly for functoriality:
 \end{definition}
 
 This simple example is already very noisy, so to cut down on symbols
-we introduce two pieces of syntactic sugar.
-
-\paragraph{First:} Like ordinary \rulen{$\to$-intro}, and as with any
-negative type-former, the \rulen{$\rformsym$-intro} rule is
-right-invertible and so we will define terms of it via copattern
-matching. For example, we will write
+we introduce some syntactic sugar. Like ordinary \rulen{$\to$-intro},
+and as with any negative type-former, the \rulen{$\rformsym$-intro}
+rule is right-invertible and so we will define terms of it via
+copattern matching. For example, we will write
 \begin{align*}
   r(\ctxlock{L}, \ctxlock{K}) :\defeq \judge
   \quad \text{to mean} \quad
@@ -1225,11 +1229,11 @@ $\ctxlock{L}$, whereas $z$ is not locked at all.
 Similarly, we might evaluate some combination of $\to$ and $\rformsym$
 by applying it to a tuple of arguments, as in $f(a, b, \rbind{i}, c)$.
 The `amazing' argument to a lock is a new bound variable $i$ as in
-\rulen{$\rformsym$-elim}, but remember that this variable is now in
+\rulen{$\rformsym$-elim}, but do remember that this variable is now in
 scope to the left of that argument in the tuple \emph{and} in the
-function itself. This form of evaluation computes in the `obvious' way,
-with a $\beta$-reduction for each entry in the list of arguments. If
-$f$ is defined via the pattern match above, we find
+function itself. This form of evaluation computes in the `obvious'
+way, with a $\beta$-reduction for each entry in the list of arguments.
+If $f$ is defined via the pattern match above, we find
 \begin{align*}
   % f(x,y,\ctxlock{L},z) :&\defeq \judge \\
   f(a(i), b(i), \rbind{i}, c)
@@ -1258,56 +1262,24 @@ tautologically equal to the definition
 \end{align*}
 
 \begin{remark}
-  Using copattern syntax could also apply to other right adjoint
-  modalities, like $\sharp$~\cite{mike:real-cohesive-hott}. In the
-  original syntax, functoriality of $\sharp$ on a function
-  $f : A \to B$ is defined by
+  This copattern syntax could apply equally well to to other right
+  adjoint modalities, like the $\sharp$ modality of
+  \cite{mike:real-cohesive-hott}. In the original syntax,
+  $\sharp$-introduction and $\sharp$-elimination are denoted by
+  $(-)^\sharp$ and $(-)_\sharp$ respectively, so functoriality of
+  $\sharp$ on a function $f : A \to B$ becomes
   $\sharp f(u) :\defeq f(u_\sharp)^\sharp$. In a copattern-style
   syntax, this might be written
   $\sharp f(u, \sharp) :\defeq f(u(\sharp))$, or
   $\sharp f(u, \sharp_{\mathsf{i}}) :\defeq f(u(\sharp_{\mathsf{e}}))$
   if we wish to distinguish the symbols for introduction and
-  elimination. Here, the interpretation is that a variable placed to
-  the left of $\sharp_{\mathsf{i}}$ becomes crisp in the body of the function, and
-  an `application' $s(\sharp_{\mathsf{e}})$ is only well-typed when $s$ is crisp.
-  In this case, $u$ becomes crisp and so it is valid to apply it to
-  $\sharp_{\mathsf{e}}$.
+  elimination. In terms of crispness, the interpretation is that a
+  variable placed to the left of $\sharp_{\mathsf{i}}$ in an argument
+  list is crisp in the body of the function, and an `application'
+  $s(\sharp_{\mathsf{e}})$ is only well-typed when $s$ is crisp. In
+  the functoriality example, $u$ becomes crisp and so it is valid to
+  `apply' it to $\sharp_{\mathsf{e}}$.
 \end{remark}
-
-\paragraph{Second:} We will often need to extract terms of $A$ from
-assumptions $r : \rformu{A}$ using the extract map $\extract_A$
-defined above. When such assumptions are behind many context locks,
-the \rulen{$\rformsym$-elim} rule provides a term $i : \Tiny$ that can
-be used to unlock all these locks at once, giving us access to $A$
-regardless of where $r$ lies in the context.
-\begin{definition}
-  If a variable $x : \rform{L} A$ is behind several locks
-  $\ctxlocke{\lockn{K}_1} \dots \ctxlocke{\lockn{K}_n}$, then let
-  \begin{align*}
-    \rget{x} :\defeq (x \stubra{\subkeyoe{i}{\lockn{K}_1},
-    \dots, \subkeyoe{i}{\lockn{K}_n}})(\rbind{i}) : A \admbra{\subkeyoe{i}{\lockn{K}_1},
-    \dots, \subkeyoe{i}{\lockn{K}_n}}\sublock{i}{L}
-  \end{align*}
-  in particular, if $x : \rform{L} A$ is behind no locks in the
-  context then $\rget{x} :\defeq \extract_A(x)$.
-\end{definition}
-This notation $\rget{x}$ is intended to evoke the elimination rule
-$x_\sharp$ used in cohesive HoTT (and similar). It cannot be
-internalised as a function, it is just an admissible piece of syntax.
-
-Using these shorthands, the definition of functoriality is much less
-noisy: For $A,B : \rformu \univ$ and
-$f : \rform{L}\left(\rget{A} \to \rget{B}\right)$ we have
-\begin{align*}
-  &\rformu f : \rform{L}\rget{A} \to \rform{L}\rget{B} \\
-  &\rformu f(r, \ctxlock{L}) :\defeq \rget{f}(\rget{r})
-\end{align*}
-The comultiplication of $\rformsym$ can be also written nicely using
-this notation. For a type $A : \rformu \univ$, define
-\begin{align*}
-  &\delta_A : \rformu{\rget{A}} \to \rformu{\rformu{\rget{A}}} \\
-  &\delta_A(r, \ctxlock{L}, \ctxlock{K}) :\defeq \rget{r}
-\end{align*}
 
 We can show that, as a right adjoint, $\rform{}$ preserves $1$ and pullbacks.
 \begin{proposition}
@@ -1315,7 +1287,7 @@ We can show that, as a right adjoint, $\rform{}$ preserves $1$ and pullbacks.
 \end{proposition}
 \begin{proof}
   Any term $r : \rformu{1}$ will $\eta$-expand as
-  $r \defeq \rintro{L}{r\substuck{i}{L}(\rbind{i})} \defeq
+  $r \defeq \rintro{L}{r\subkey{i}{L}(\rbind{i})} \defeq
   \rintro{L}{\star}$ and so $\rformu{1}$ is contractible.
 \end{proof}
 
@@ -1325,24 +1297,25 @@ We can show that, as a right adjoint, $\rform{}$ preserves $1$ and pullbacks.
   %   \rformu \left( \sm{x : A} B(x) \right) \equiv \sm{x : \rformu A} \rformu B(\rget{x})
   % \end{align*}
   If $A : \rformu \univ$ and
-  $B : \rformu (\rget{A} \to \univ)$ there is an equivalence
+  $B : \rformu (A\subkey{i}{L}(\rbind i) \to \univ)$ there is an equivalence
   \begin{align*}
-    \rformu \left( \sm{x : \rget{A}}\rget{B}(x) \right) \equiv \sm{x : \rformu \rget{A}} \rformu (\rget{B}(\rget{x}))
+    \rformu \left( \sm{x : A\subkey{i}{L}(\rbind i)}B\subkey{i}{L}(\rbind i, x) \right) \equiv \sm{x : \rformu A\subkey{i}{L}(\rbind i)} \rformu (B\subkey{i}{L}(\rbind i, x\subkey{i}{L}(\rbind i)))
   \end{align*}
 \end{proposition}
 \begin{proof}
   Define maps either way by
   \begin{align*}
-    r &\mapsto (\rintro{L}{\proj_1 \rget{r}}, \rintro{K}{\proj_2\rget{r}}) \\
-    (s,t) &\mapsto \rintro{L}(\rget{s}, \rget{t})
+    \phi(r) &:\defeq (\rintro{L}{\proj_1 r\subkey{i}{L}(\rbind i)}, \rintro{K}{\proj_2r\subkey{i}{L}(\rbind i)}) \\
+    \phi^{-1}(s,t,\ctxlock{L}) &:\defeq (s\subkey{i}{L}(\rbind i), t\subkey{i}{L}(\rbind i))
   \end{align*}
+  These are definitional inverses.
 \end{proof}
 
 \begin{proposition}
-  For any $A : \rformu{\univ}$ and $r, s : \rformu{\rget{A}}$, there
+  For any $A : \rformu{\univ}$ and $r, s : \rformu{A\subkey{i}{L}(\rbind i)}$, there
   is an equivalence
   \begin{align*}
-    (r = s) \equiv \rformu \left( \rget{r} = \rget{s} \right)
+    (r = s) \equiv \rformu \left( r\subkey{i}{L}(\rbind i) = s\subkey{i}{L}(\rbind i) \right)
     % \rform{L} \left( \prd{t : \Tiny} \varkey{L}{t} a(t) =
     %   \varkey{L}{t} a'(t) \right) \equiv \left(\rintro{L}{\lambda
     %   t. \varkey{L}{t} a(t)} =_{\rformu \prd{t : \Tiny}
@@ -1352,22 +1325,22 @@ We can show that, as a right adjoint, $\rform{}$ preserves $1$ and pullbacks.
 \end{proposition}
 \begin{proof}
   By the fundamental theorem of $\Idsym$-types, we just have to check
-  that for fixed $r : \rformu{\rget{A}}$, the type
+  that for fixed $r : \rformu{A\subkey{i}{L}(\rbind i)}$, the type
   \begin{align*}
-    \sm{s : \rformu{\rget{A}}} \rformu \left( \rget{r} = \rget{s} \right)
+    \sm{s : \rformu{A\subkey{i}{L}(\rbind i)}} \rformu \left( r\subkey{i}{L}(\rbind i) = s\subkey{i}{L}(\rbind i) \right)
   \end{align*}
   is contractible. By \cref{prop:root-preserve-sum}, this
   type is equivalent to
   \begin{align*}
-    \rformu{\left(\sm{x : \rget{A}} \rget{r} = x \right)}
+    \rformu{\left(\sm{x : A\subkey{i}{L}(\rbind i)} r\subkey{i}{L}(\rbind i) = x \right)}
   \end{align*}
   and the interior is a contractible pair.
 \end{proof}
 This is more recognisable as a statement of left-exactness with the
 left side $\eta$-expanded:
 \begin{corollary}
-  $(\rintro{L}{\rget{r}} = \rintro{L}{\rget{s}}) \equiv \rform{L}
-  \left( \rget{r} = \rget{s} \right)$
+  $(\rintro{L}{r\subkey{i}{L}(\rbind i)} = \rintro{L}{s\subkey{i}{L}(\rbind i)}) \equiv \rform{L}
+  \left( r\subkey{i}{L}(\rbind i) = s\subkey{i}{L}(\rbind i) \right)$
 \end{corollary}
 % \begin{corollary}[$\rformu$ preserves $=$]
 %   If $A : \univ$ and $a,a' : A$ are closed then
@@ -1434,17 +1407,17 @@ counit maps for the adjunction.
   and for \emph{any} $B : \Tiny \to \rformu \univ$ a map
   \begin{align*}
     % \varepsilon_B &: \left(\prd{t:\Tiny} \rform{K} B \substuck{j}{K}(t\substuck{j}{K}, \rbind{j})\right) \to B(j, \rbind{j})
-    \varepsilon_B &: \left(\prd{t:\Tiny} \rform{K} \rget{B(t)} \right) \to B(j, \rbind{j})                    
+    \varepsilon_B &: \left(\prd{t:\Tiny} \rform{K} B\subkey{i}{K}(t\subkey{i}{K}, \rbind i) \right) \to B(j, \rbind{j})                    
   \end{align*}
   with the same definitions as in the closed case.
 \end{definition}
 
 Besides $\varepsilon_B$ not being definable for an arbitrary type $B$,
 we have also seen that $\rformu -$ is not functorial on arbitrary maps
-$A \to B$. So to what extent is $(\Tiny \to -) \dashv \rformu -$? We
-can prove an internal adjointness statement analogous to one
-in~\cite[\S 3]{fhm:left-and-right} for adjunctions in which the
-left adjoint is strong monoidal.
+$A \to B$. So to what extent do we actually have the adjunction
+$(\Tiny \to -) \dashv \rformu -$? We can prove an internal adjointness
+statement analogous to one in~\cite[\S 3]{fhm:left-and-right} for
+adjunctions in which the left adjoint is strong monoidal.
 
 \begin{proposition}
   If $A$ and $B$ are closed types then there is an equivalence
@@ -1456,7 +1429,7 @@ Happily, we can allow $A$ and $B$ to be dependent types:
 \begin{proposition}\label{prop:adj}
   For any $A : \univ$ and $B : \rformu \univ$, there is an equivalence
   \begin{align*}
-    \rform{L} ((\prd{t:\Tiny} A\substuck{t}{L}) \to \rget{B}) \to (A \to \rform{L} \rget{B})
+    \rform{L} ((\prd{t:\Tiny} A\substuck{t}{L}) \to B\subkey{i}{L}(\rbind i)) \to (A \to \rform{L} B\subkey{i}{L}(\rbind i))
   \end{align*}
 \end{proposition}
 And in fact, we can also let $B$ depend on $A$. In full generality:
@@ -1464,7 +1437,7 @@ And in fact, we can also let $B$ depend on $A$. In full generality:
   For any $A : \univ$ and $B : A \to \rformu \univ$, there is an
   equivalence
   \begin{align*}
-    \Phi : \rform{K} \left(\prd{h:\prd{t:\Tiny} A\substuck{t}{L}} B\substuck{i}{L}(h(i), \rbind{i})\right) \to \prd{a:A} \rform{L} \rget{B(a)}
+    \Phi : \rform{K} \left(\prd{h:\prd{t:\Tiny} A\substuck{t}{L}} B\substuck{i}{L}(h(i), \rbind{i})\right) \to \prd{a:A} \rform{L} B(a)\subkey{i}{L}(\rbind i)
   \end{align*}
   given by
   \begin{alignat*}{2}
@@ -1567,37 +1540,37 @@ Since we have given $\Tiny \to -$ a right adjoint, it now preserves
 colimits. In particular, we support the same kind of
 ``higher-dimensional pattern matching'' on functions out of $\Tiny$,
 as suggested in~\cite[\S 2.4]{transpension}. In this section we derive
-an induction principle for functions of $\Tiny$ into coproducts,
-thought we expect easy generalisations to other inductive types.
+an induction principle for functions of $\Tiny$ into coproducts, we
+expect this to generalise easily to other inductive types.
 
 \begin{proposition}\label{prop:higher-match}
   Suppose types $A, B : \univ$ and a type family \[P : \rform{L}\left( \left( \prd{t : \Tiny} A\substuck{t}{L} + B\substuck{t}{L} \right) \to \univ\right).\]
   Then there is a map 
   \begin{align*}
-    \mathsf{hind} : &\,\rform{L} \left(\prd{l : \prd{t : \Tiny} A\substuck{t}{L}} \rget{P}(\inl \circ l) \right) \\
-    \times &\,\rform{L} \left(\prd{r : \prd{t : \Tiny} B\substuck{t}{L}} \rget{P}(\inr \circ r) \right) \\
-    \to &\,\rform{L} \left(\prd{f : \prd{t : \Tiny} A\substuck{t}{L} + B\substuck{t}{L}} \rget{P}(f) \right)
+    \mathsf{higherind} : &\,\rform{L} \left(\prd{l : \prd{t : \Tiny} A\substuck{t}{L}} P\subkey{i}{L}(\rbind i, \inl \circ l) \right) \\
+    \times &\,\rform{L} \left(\prd{r : \prd{t : \Tiny} B\substuck{t}{L}} P\subkey{i}{L}(\rbind i, \inr \circ r) \right) \\
+    \to &\,\rform{L} \left(\prd{f : \prd{t : \Tiny} A\substuck{t}{L} + B\substuck{t}{L}} P\subkey{i}{L}(\rbind i, f) \right)
   \end{align*}
-  such that $\mathsf{hind}(g, h)$ computes via
+  such that $\mathsf{higherind}(g, h)$ satisfies \mvrnote{this needs to be fixed, don't use $\ctxlock$ here}
   \begin{alignat*}{2}
-    &\mathsf{hind}(g, h)(\ctxlock{L}, \lambda t. \inl(\rget{l}(t))) &&\defeq \rget{g}(\rget{l}) \\
-    &\mathsf{hind}(g, h)(\ctxlock{L}, \lambda t. \inr(\rget{r}(t))) &&\defeq \rget{h}(\rget{r})
+    &\mathsf{higherind}(g(j), h(j), \rbind j, \lambda t. \inl(l\subkey{i}{L}(\rbind i, t))) &&\defeq g(j, \rbind j, l\subkey{i}{L}(\rbind i)) \\
+    &\mathsf{higherind}(g(j), h(j), \rbind j, \lambda t. \inr(r\subkey{i}{L}(\rbind i, t))) &&\defeq h(j, \rbind j, r\subkey{i}{L}(\rbind i))
   \end{alignat*}
   for any $l : \rform{L}(\prd{t:T}A\substuck{t}{L})$ and $r : \rform{L}(\prd{t:T} B\substuck{t}{L})$.
 \end{proposition}
 If we like, we can always extract the underlying function
-$\mathsf{hind}(g, h)(\rbind i) : \prd{f:\Tiny \to A + B} \rget{P}(f)$ of
+$\mathsf{higherind}(g, h, \rbind i) : \prd{f:\Tiny \to A + B} P\subkey{i}{L}(\rbind i, f)$ of
 the result.
 \begin{proof}
   There is a chain of equivalences
   \begin{align*}
-    &\rform{L} \left(\prd{l : \prd{t : \Tiny} A\substuck{t}{L}} \rget{P}(\inl \circ l) \right) \times \rform{L} \left(\prd{r : \prd{t : \Tiny} B\substuck{t}{L}} \rget{P}(\inr \circ r) \right) \\
+    &\rform{L} \left(\prd{l : \prd{t : \Tiny} A\substuck{t}{L}} P\subkey{i}{L}(\rbind i, \inl \circ l) \right) \times \rform{L} \left(\prd{r : \prd{t : \Tiny} B\substuck{t}{L}} P\subkey{i}{L}(\rbind i, \inr \circ r) \right) \\
     &\quad \text{(Dependent adjointness)} \\
-    &\equiv \left(\prd{a : A} \rform{L} \rget{P}(\lambda i. \inl(a\substuck{i}{L})) \right) \times \left(\prd{b : B} \rform{L} \rget{P}(\lambda i. \inr(b\substuck{i}{L})) \right) \\
+    &\equiv \left(\prd{a : A} \rform{L} P\subkey{i}{L}(\rbind i, \lambda t. \inl(a\substuck{t}{L})) \right) \times \left(\prd{b : B} \rform{L} P\subkey{i}{L}(\rbind i, \lambda t. \inr(b\substuck{t}{L})) \right) \\
     &\quad \text{(Universal property of $+$)} \\
-    &\equiv \prd{s : A + B} \rform{L} \rget{P}(\lambda i. s\substuck{i}{L}) \\
+    &\equiv \prd{s : A + B} \rform{L} P\subkey{i}{L}(\rbind i, \lambda t. s\substuck{t}{L}) \\
     &\quad \text{(Dependent adjointness)} \\
-    &\equiv \rform{L} \left(\prd{f : \prd{t : \Tiny} A\substuck{t}{L} + B\substuck{t}{L}} \rget{P}(f) \right)
+    &\equiv \rform{L} \left(\prd{f : \prd{t : \Tiny} A\substuck{t}{L} + B\substuck{t}{L}} P\subkey{i}{L}(\rbind i, f) \right)
   \end{align*}
   % Explicitly, the map is defined as follows. Before the last step, we have an element $c : \prd{s : A + B} \rform{L} \rget{P}(\lambda i. s\substuck{i}{L})$ defined by
   % \begin{align*}
@@ -1606,38 +1579,38 @@ the result.
   % \end{align*}
   % Then, we may define
   % \begin{align*}
-  %   \mathsf{hind}(g, h, \ctxlock{L}, f) :\defeq c(g\substuck{i}{L}, h\substuck{i}{L}, f(i), \rbind i)
+  %   \mathsf{higherind}(g, h, \ctxlock{L}, f) :\defeq c(g\substuck{i}{L}, h\substuck{i}{L}, f(i), \rbind i)
   % \end{align*}
   As a term, the forward map is 
   \begin{align*}
-    \mathsf{hind}(g, h)(\ctxlock{L}, f) :\defeq \mathsf{case}_+(f(i), &a. \rintro{K} \rget{g}(\lambda t. a\substuck{t}{K}), \\
-    &b. \rintro{K} \rget{h}(\lambda t. b\substuck{t}{K}) )(\rbind i)
+    \mathsf{higherind}(g, h, \ctxlock{L}, f) :\defeq \mathsf{case}_+(f(k), &a. \rintro{K} g\subkey{j}{L}(\rbind j, \lambda t. a\substuck{t}{K}), \\
+    &b. \rintro{K} h\subkey{j}{L}(\rbind j, \lambda t. b\substuck{t}{K}))(\rbind k)
   \end{align*}
   We can show directly that this map has the desired computational properties:
   % \begin{align*}
-  %   &\mathsf{hind}(g, h, \ctxlock{L}, \lambda t. \inl(l\substuck{t}{L}(t))) \\
+  %   &\mathsf{higherind}(g, h, \ctxlock{L}, \lambda t. \inl(l\substuck{t}{L}(t))) \\
   %   &\defeq \mathsf{case}_+(\inl(l\substuck{i}{L}(i)), a. \rintro{K} \rget{g}(\lambda t. a\substuck{t}{K}), b. \rintro{K} \rget{h}(\lambda t. b\substuck{t}{K}) )(\rbind i) \\
   %   &\defeq (\rintro{K} \rget{g}(\lambda t. l\substuck{i}{L}\substuck{t}{K}(i\substuck{t}{K})))(\rbind i) \\
   %   &\defeq \rget{g}(\lambda t. l\substuck{i}{L}\substuck{t}{K}(i\substuck{t}{K}))\sublock{i}{K} \\
   %   &\defeq \rget{g}(\lambda t. l\substuck{t}{L}(t))
   % \end{align*}
   \begin{align*}
-    &\mathsf{hind}(g, h)(\ctxlock{L}, \lambda t. \inl(\rget{l}(t))) \\
-    &\defeq \mathsf{case}_+(\inl(\rget{l}(i)), a. \rintro{K} \rget{g}(\lambda t. a\substuck{t}{K}), b. \rintro{K} \rget{h}(\lambda t. b\substuck{t}{K}) )(\rbind i) \\
-    &\defeq (\rintro{K} \rget{g}(\lambda t. \rget{l}\substuck{t}{K}(i\substuck{t}{K})))(\rbind i) \\
-    &\defeq \rget{g}(\lambda t. \rget{l}\substuck{t}{K}(i\substuck{t}{K}))\sublock{i}{K} \\
-    &\defeq \rget{g}(\lambda t. \rget{l}(t)) \\
-    &\defeq \rget{g}(\rget{l})
+    &\mathsf{higherind}(g(j), h(j), \rbind j, \lambda t. \inl(l\subkey{i}{L}(\rbind i, t))) \\
+    &\defeq \mathsf{case}_+(\inl(l\subkey{i}{L}(\rbind i, k)), a. \rintro{K} g(j, \rbind j, \lambda t. a\subkey{t}{K}), b. \rintro{K} h(j, \rbind j, \lambda t. b\subkey{t}{K}) )(\rbind k) \\
+    &\defeq (\rintro{K} g(j, \rbind j, \lambda t. l\admbra{\subkeyo{i}{L}, \subkeyo{t}{K}}(\rbind i, k\subkey{t}{K})))(\rbind k) \\
+    &\defeq g(j, \rbind j, \lambda t. l\admbra{\subkeyo{i}{L}, \subkeyo{t}{K}}(\rbind i, k\subkey{t}{K}))) \sublock{k}{K} \\
+    &\defeq g(j, \rbind j, \lambda t. l\subkey{i}{L}(\rbind i)(t)) \\
+    &\defeq g(j, \rbind j, l\subkey{i}{L}(\rbind i))
   \end{align*}
-  and similarly when evaluated at $\lambda t. \inr(\rget{r}(t))$.
+  and similarly when evaluated on $\lambda t. \inr(r\subkey{i}{L}(\rbind i, t))$.
 \end{proof}
 The upshot of the above is that we support higher-dimension pattern
 matching of the following form: to define a function
 $p : \rform{L} \left(\prd{f : \prd{t : \Tiny} A\substuck{t}{L} +
-    B\substuck{t}{L}} \rget{P}(f) \right)$, it suffices to give cases
+    B\substuck{t}{L}} P\subkey{i}{L}(\rbind i, f) \right)$, it suffices to give cases
 \begin{alignat*}{2}
-  &p(\ctxlock{L}, \lambda t. \inl(\rget{l}(t))) &&:\defeq \dots \\
-  &p(\ctxlock{L}, \lambda t. \inr(\rget{r}(t))) &&:\defeq \dots 
+  &p(\ctxlock{L}, \lambda t. \inl(l\subkey{i}{L}(\rbind i, t))) &&:\defeq \dots \\
+  &p(\ctxlock{L}, \lambda t. \inr(r\subkey{i}{L}(\rbind i, t))) &&:\defeq \dots 
 \end{alignat*}
 
 An immediate application is:
@@ -1656,8 +1629,8 @@ An immediate application is:
   \end{align*}
   The cases we have to provide are:
   \begin{alignat*}{2}
-    &\mathsf{unsplit}_{A + B}(\ctxlock{L}, \lambda t. \inl(\rget{l}(t))) &&:\defeq \inl(\rget{l}) \\
-    &\mathsf{unsplit}_{A + B}(\ctxlock{L}, \lambda t. \inr(\rget{r}(t))) &&:\defeq \inr(\rget{r})
+    &\mathsf{unsplit}_{A + B}(\ctxlock{L}, \lambda t. \inl(l\subkey{i}{L}(\rbind i, t))) &&:\defeq \inl(l\subkey{i}{L}(\rbind i)) \\
+    &\mathsf{unsplit}_{A + B}(\ctxlock{L}, \lambda t. \inr(r\subkey{i}{L}(\rbind i, t))) &&:\defeq \inr(r\subkey{i}{L}(\rbind i))
   \end{alignat*}
   In one direction, the composite computes definitionally:
   \begin{align*}
@@ -1671,14 +1644,14 @@ An immediate application is:
   \end{align*}
   In the branches, the left-hand side of the path computes away:
   \begin{align*}
-    \mathsf{split}(\mathsf{unsplit}(\lambda t. \inl(\rget{l}(t)))) 
-    \defeq \mathsf{split}(\inl(\rget{l}))
-    \defeq \lambda t. \inl(\rget{l}(t))
+    \mathsf{split}(\mathsf{unsplit}(\lambda t. \inl(l\subkey{i}{L}(\rbind i, t)))) 
+    \defeq \mathsf{split}(\inl(l\subkey{i}{L}(\rbind i)))
+    \defeq \lambda t. \inl(l\subkey{i}{L}(\rbind i, t))
   \end{align*}
   and similarly for $\inr$, so we may inhabit the type family by
   \begin{alignat*}{2}
-    \mathsf{inv}_{A + B}(\ctxlock{L}, \lambda t. \inl(\rget{l}(t)), t) &:\defeq \refl{\inl(\rget{l}(t))} \\
-    \mathsf{inv}_{A + B}(\ctxlock{L}, \lambda t. \inr(\rget{r}(t)), t) &:\defeq \refl{\inr(\rget{r}(t))}    
+    \mathsf{inv}_{A + B}(\ctxlock{L}, \lambda t. \inl(l\subkey{i}{L}(\rbind i, t)), t) &:\defeq \refl{\inl(l\subkey{i}{L}(\rbind i, t))} \\
+    \mathsf{inv}_{A + B}(\ctxlock{L}, \lambda t. \inr(r\subkey{i}{L}(\rbind i, t)), t) &:\defeq \refl{\inr(r\subkey{i}{L}(\rbind i, t))}    
   \end{alignat*}
   proving (via function extensionality) that $\mathsf{unsplit}_{A+B}$ is
   indeed an inverse.
@@ -1717,7 +1690,7 @@ $B : \rformu \univ$, define the type family
 $\rdepform{-}{B} : \Tiny \to \univ$ by the pullback
 \[
   \begin{tikzcd}
-    \sm{t : \Tiny} \rdepform{t}{B} \ar[r] \ar[d] \arrow[dr, phantom, "\lrcorner", very near start] & \rformu \left(\sm{X : \univ} X \to \rget{B} \right) \ar[d, "\rformu \proj_1"] \\
+    \sm{t : \Tiny} \rdepform{t}{B} \ar[r] \ar[d] \arrow[dr, phantom, "\lrcorner", very near start] & \rformu \left(\sm{X : \univ} X \to B\subkey{i}{L}(\rbind i) \right) \ar[d, "\rformu \proj_1"] \\
     \Tiny \ar[r, "{(-=\id_\Tiny)^\vee}" swap] & \rformu \univ
   \end{tikzcd}
 \]
@@ -1731,25 +1704,25 @@ We can simplify this description a fair amount. Because $\rformu$
 commutes with $\Sigma$-types, the map on the right is equivalent to
 the projection
 \begin{align*}
-  \proj_1 : \sm{X : \rformu \univ} \rform{K}{(\rget{X} \to \rget{B})} \to \rformu \univ
+  \proj_1 : \sm{X : \rformu \univ} \rform{K}{(X\subkey{i}{K}(\rbind i) \to B\subkey{i}{K}(\rbind i))} \to \rformu \univ
 \end{align*}
 The fibre of the pullback over a fixed $t : \Tiny$ is then easy to
 calculate: it is equivalent to the type of the second component of the sum:
 \begin{align*}
-  &\rform{L}{(\rget{X} \to \rget{B})}[(\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s})/X] \\
-  % &\defeq \rform{L}{(X\substuck{l}{L}(\rbind{l}) \to \rget{B})}[\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}/X] \\
-  % &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s} \right)\subkey{l}{L}(\rbind{l}) \to \rget{B} \right)} \\
-  % &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}} = s}\right)(\rbind{l}) \to \rget{B} \right)} \\
-  % &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}} = s)\sublock{l}{K} \to \rget{B} \right)} \\
-  % &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}}\sublock{l}{K} = s) \to \rget{B} \right)} \\
-  % &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l[s/l]}{L} = s) \to \rget{B} \right)} \\  
-  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{s}{L} = s) \to \rget{B} \right)}
+  &\rform{L}{(X\subkey{i}{L}(\rbind i) \to B\subkey{i}{L}(\rbind i))}[(\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s})/X] \\
+  % &\defeq \rform{L}{(X\substuck{l}{L}(\rbind{l}) \to B\subkey{i}{L}(\rbind i))}[\rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s}/X] \\
+  % &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\substuck{s}{K} = s} \right)\subkey{l}{L}(\rbind{l}) \to B\subkey{i}{L}(\rbind i) \right)} \\
+  % &\defeq \rform{L}{\left(\left( \rintro{K}{\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}} = s}\right)(\rbind{l}) \to B\subkey{i}{L}(\rbind i) \right)} \\
+  % &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}} = s)\sublock{l}{K} \to B\subkey{i}{L}(\rbind i) \right)} \\
+  % &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\stubra{\subkeyo{l\substuck{s}{K}}{L}, \subkeyo{s}{K}}\sublock{l}{K} = s) \to B\subkey{i}{L}(\rbind i) \right)} \\
+  % &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{l[s/l]}{L} = s) \to B\subkey{i}{L}(\rbind i) \right)} \\  
+  &\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{s}{L} = s) \to B\subkey{i}{L}(\rbind i) \right)}
 \end{align*}
 and so we take this as our definition.
 \begin{definition}
   For $B : \rformu \univ$, define the \emph{transpension} $B^{1/-} : \Tiny \to \univ$ to be
   \begin{align*}
-    \rdepform{t}{B} :\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{s}{L} = s) \to \rget{B} \right)}
+    \rdepform{t}{B} :\defeq \rform{L}{\left( (\prd{s : \Tiny} t\substuck{s}{L} = s) \to B\subkey{i}{L}(\rbind i) \right)}
   \end{align*}
 \end{definition}
 % \mvrnote{This looks really close to something we can apply dependent adjointness to directly, but I don't think there's a way to rewrite $t\substuck{s}{L} = s$ in the form $?\subkey{s}{L}$}
@@ -1758,7 +1731,7 @@ The whole point of this construction was to be a right adjoint to the dependent 
 \begin{proposition}
   For $A : \Tiny \to \univ$ and $B : \rformu \univ$
   \begin{align*}
-    \rform{L} \left( \left(\prd{s : \Tiny} A\substuck{s}{L}(s)\right) \to \rget{B} \right) \equiv \left(\prd{t : \Tiny} A(t) \to \rdepform{t}{B} \right)
+    \rform{L} \left( \left(\prd{s : \Tiny} A\substuck{s}{L}(s)\right) \to B\subkey{i}{L}(\rbind i) \right) \equiv \left(\prd{t : \Tiny} A(t) \to \rdepform{t}{B} \right)
   \end{align*}
 \end{proposition}
 \begin{proof}
@@ -1767,23 +1740,23 @@ The whole point of this construction was to be a right adjoint to the dependent 
   denote the type family
   \begin{align*}
     &P : \left(\sm{t : \Tiny} A(t)\right) \to \rformu{\univ} \\
-    &P((t, a), \ctxlock{K}) :\defeq (\prd{s:\Tiny} t\substuck{s}{K} t = s) \to \rget{B}
+    &P((t, a), \ctxlock{K}) :\defeq (\prd{s:\Tiny} t\substuck{s}{K} t = s) \to B\subkey{i}{L}(\rbind i)
   \end{align*}
   Then
   \begin{align*}
-    &\rform{L} \left(\left(\prd{s:\Tiny} (A\substuck{s}{L})(s)\right) \to \rget{B} \right) \\
-    &\equiv \rform{L} \left(\left(\prd{s:\Tiny}\sm{t : \Tiny} {a : A\substuck{s}{L}(t)} (t = s) \right)\to \rget{B} \right) && \text{(Contractible pair)} \\
-    &\equiv \rform{L} \left(\prd{f:\prd{t':\Tiny} \sm{t : \Tiny} A\substuck{t'}{L}(t)} \left(\prd{s:\Tiny} \proj_1(f(i)) = s\right) \to \rget{B} \right)  && \text{(Univ.\ property of $\Sigma$)} \\
+    &\rform{L} \left(\left(\prd{s:\Tiny} (A\substuck{s}{L})(s)\right) \to B\subkey{i}{L}(\rbind i) \right) \\
+    &\equiv \rform{L} \left(\left(\prd{s:\Tiny}\sm{t : \Tiny} {a : A\substuck{s}{L}(t)} (t = s) \right)\to B\subkey{i}{L}(\rbind i) \right) && \text{(Contractible pair)} \\
+    &\equiv \rform{L} \left(\prd{f:\prd{t':\Tiny} \sm{t : \Tiny} A\substuck{t'}{L}(t)} \left(\prd{s:\Tiny} \proj_1(f(i)) = s\right) \to B\subkey{i}{L}(\rbind i) \right)  && \text{(Univ.\ property of $\Sigma$)} \\
     &\defeq \rform{L} \left(\prd{f:\prd{t':\Tiny} \sm{t : \Tiny} A\substuck{t'}{L}(t)} P\substuck{i}{L}(f(i), \rbind{i})\right) && \text{(Definition of $P$)} \\
     &\equiv \prd{(t,a) : \sm{t : \Tiny} A(t)} \rform{L}{(P\substuck{i}{L})(t\substuck{i}{L},a\substuck{i}{L}, \rbind{i})} && \text{(\cref{prop:dep-adj})} \\
-    &\defeq \prd{(t,a) : \sm{t : \Tiny} A(t)} \rform{L}{\left((\prd{s : \Tiny} t \substuck{s}{L} = s) \to \rget{B}\right)} && \text{(Definition of $P$)} \\
+    &\defeq \prd{(t,a) : \sm{t : \Tiny} A(t)} \rform{L}{\left((\prd{s : \Tiny} t \substuck{s}{L} = s) \to B\subkey{i}{L}(\rbind i)\right)} && \text{(Definition of $P$)} \\
     &\defeq \prd{(t,a) : \sm{t : \Tiny} A(t)} \rdepform{t}{B} && \text{(Definition of $B^{1/t}$)} \\
     &\equiv\prd{t : \Tiny} A(t) \to \rdepform{t}{B} && \text{(Currying)}
   \end{align*}
 \end{proof}
 
 \begin{corollary}
-  $\rformu \rget{B} \equiv \left(\prd{t : \Tiny} \rdepform{t}{B} \right)$
+  $\rformu B\subkey{i}{L}(\rbind i) \equiv \left(\prd{t : \Tiny} \rdepform{t}{B} \right)$
 \end{corollary}
 \begin{proof}
   Plug in $A(t) :\defeq 1$ in the above.
@@ -1873,8 +1846,8 @@ We end with some commentary on possible applications of our theory.
 \paragraph{Synthetic Differential Geometry.} In future work with David
 Jaz Myers, we intend to construct form classifiers of various kinds
 internal to type theory and prove the properties asserted
-axiomatically in \cite[\S 3]{david:modal-fracture} and \cite[Appendix
-A]{david:microlinear}. In particular, we plan to give a synthetic
+axiomatically in \cite[\S 3]{jaz:modal-fracture} and \cite[Appendix
+A]{jaz:microlinear}. In particular, we plan to give a synthetic
 construction of the de Rham complex by constructing a long exact sequence
 of form classifiers $\RR \to \Lambda^1 \to \Lambda^2 \to \cdots$.
 
@@ -1958,7 +1931,7 @@ the axiomatically asserted tininess. A more convenient definition of
 $\univfib$ is then
 \begin{align*}
   \univfib
-  &:\defeq \sm{X : \Set} \rformu{\rget{A}} [\Compstr^\vee(X)/A] \\
+  &:\defeq \sm{X : \Set} \rformu{A\subkey{i}{L}(\rbind i)} [\Compstr^\vee(X)/A] \\
   % &\defeq \sm{X : \Set} \rformu{(A\substuck{i}{L})(\rbind{i})} [\Compstr^\vee(X)/A] \\
   % &\defeq \sm{X : \Set} \rform{K}{(\Compstr^\vee(\substuck{i}{K}))(\rbind{i})} \\
   &\defeq \sm{X : \Set} \rform{L}{\Compstr(\lambda j. X\substuck{j}{L})}
@@ -1969,7 +1942,7 @@ $\univfib$ is then
 %   &\pi_1 : \univfib \to \Set \\
 %   &\pi_1(X, r) :\defeq X \\
 %   &\pi_2 : \univfib \to \rformu \sm{A : \Set} A \\
-%   &\pi_2(X, r, \ctxlock{L}) :\defeq (\Compstr(\lambda j. X\substuck{j}{L}), \rget{r})
+%   &\pi_2(X, r, \ctxlock{L}) :\defeq (\Compstr(\lambda j. X\substuck{j}{L}), r\subkey{i}{L}(\rbind i))
 % \end{align*}
 
 % The map $\pi_2$ can be transposed back to
@@ -1993,45 +1966,50 @@ $\univfib$ is then
 % \end{align*}
 % as in~\cite{lops}.
 
-But inspecting this construction, things are much simpler if we
-slightly change our notion of fibration. Surrounding $\Compstr$ with
-$\rformsym$ in the body of $\isFib$, define:
+Inspecting this construction, we now have described $\univfib$ as a
+universe of types equipped with some extra structure. Following
+\cite{gwb:directed-univalence}, we call this structure \emph{amazing
+  fibrancy}:
 \begin{align*}
-  &\isNewFib : \prd{\Gamma : \Set}{A : \Gamma \to \Set} \Set \\
-  &\isNewFib(\Gamma)(A) :\defeq \prd{g : \Gamma} \rform{L}{\Compstr(\lambda i. A\substuck{i}{L}(g\substuck{i}{L}))} \\
-  &\NewFib : \Set \to \Set \\
-  &\NewFib(\Gamma) :\defeq \sm{A : \Gamma \to \Set} \isNewFib(\Gamma)(A)
+  &\isAFib : \Set \to \Set \\
+  &\isAFib(A) :\defeq \rform{L}{\Compstr(\lambda i. A\substuck{i}{L})}
 \end{align*}
-% The extract map for $\rformsym$ gives a function
-% $\isNewFib(\Gamma)(A) \to \isFib(\Gamma)(A)$, which induces a map
-% $\NewFib(\Gamma) \to \Fib(\Gamma)$.
+% The extract map for $\rformsym$ function
+% $\isAFib(\Gamma)(A) \to \isFib(\Gamma)(A)$, which induces a map
+% $\AFib(\Gamma) \to \Fib(\Gamma)$.
 
 Unchanged, the type $\univfib$ defined above classifies
 \emph{non-crisp} fibrations of this tweaked kind, in that there is a
 completely unrestricted equivalence between the type of functions
-$\Gamma \to \univfib$ and $\NewFib(\Gamma)$.
+$\Gamma \to \univfib$ and and pairs of type families
+$A : \Gamma \to \Set$ with
+\begin{align*}
+  \rform{L} \left( \prd{g : \Int \to \Gamma} \Compstr((\lambda i. A\subkey{i}{L}) \circ g)\right)
+\end{align*}
+from which we can extract an element of $\isFib(\Gamma)(A)$, if we
+like.
+
 % This is clear once we simplify further\ldots The definition of
-% $\isNewFib$ is precisely of the shape to apply dependent
+% $\isAFib$ is precisely of the shape to apply dependent
 % adjointness, and
 % \begin{align*}
-%   \isNewFib(\Gamma)(A) \equiv \prd{g : \Gamma} \rform{L}{\Compstr(\lambda i. A\substuck{i}{L}(g))}
+%   \isAFib(\Gamma)(A) \equiv \prd{g : \Gamma} \rform{L}{\Compstr(\lambda i. A\substuck{i}{L}(g))}
 % \end{align*}
 % so
 % \begin{align*}
-%   \NewFib(\Gamma) &:\defeq \sm{A : \Gamma \to \Set} \isNewFib(\Gamma)(A) \\
+%   \AFib(\Gamma) &:\defeq \sm{A : \Gamma \to \Set} \isAFib(\Gamma)(A) \\
 %                   &\equiv \sm{A : \Gamma \to \Set} \prd{g : \Gamma} \rform{L}{\Compstr(\lambda i. A\substuck{i}{L}(g))} \\
 %                   &\equiv \Gamma \to \sm{A : \Set} \rform{L}{\Compstr(\lambda i. A\substuck{i}{L})} 
 % \end{align*}
 % and the codomain is exactly the definition of $\univfib$.
-We can construct an element of $\NewFib \univfib$ tautologically,
-running the identity $\univfib \to \univfib$ backwards through that
-equivalence. The proofs of fibrancy for each type constructor would
-need to be re-done to account for the presence of $\rformsym$ in
-$\isNewFib$, something we also leave for future work. There is the
-intriguing prospect of these proofs amounting to a constructive
-\emph{implementation} of cubical type theory internal to MLTT with a
-tiny object, if enough of the non-computational axioms used
-in~\cite{lops} can be avoided.
+For any particular notion of composition structure, the proofs that
+each type constructor preserves fibrancy would need to be re-done to
+account for the presence of $\rformsym$ in $\isAFib$, something we
+also leave for future work. There is the intriguing prospect of these
+proofs amounting to a constructive \emph{implementation} of cubical
+type theory internal to MLTT with a tiny object, though the
+theory would still need to have extension types and glue types as
+built-in type formers.
 
 \paragraph{Higher-Order Abstract Syntax.}
 
@@ -2077,8 +2055,8 @@ Suppose we have an inductive type $\iTm$ representing the abstract
 syntax of the untyped $\lambda$-calculus, and want to implement
 single-variable substitution
 $\isubst : (\Viny \to \iTm) \to \iTm \to \iTm$ so that
-$\isubst(\lambda i. v, u)$ substitutes $u$ for $i$ wherever it occurs
-in $v$. We need to induct on $v$ ``under the binder'' for $i$, and the
+$\isubst(\lambda i. t, u)$ substitutes $u$ for $i$ wherever it occurs
+in $t$. We need to induct on $t$ ``under the binder'' for $i$, and the
 tininess of $\Viny$ allows us to do this by similar techniques
 to~\cref{sec:induction}. Applying adjointness, it will be enough to
 define the conjugate operation with type
@@ -2162,7 +2140,7 @@ as in \cite{gsb:implementing}, or `marking/unmarking' operations as in
 \cite{rfl:spec-note}.
 
 Throughout, we continue to let $\subkeyo{\vec{t}}{L}$ stand in for a sequence such
-as $\subkeyoe{t_1}{\lockn{L}_1}, \dots, \subkeyoe{t_n}{\lockn{L}_n}$.
+as $\subkeysep{t_1}{\lockn{L}_1}, \dots, \subkeysep{t_n}{\lockn{L}_n}$.
 
 Like substitution, our new admissible rules are definable purely on
 well-scoped syntax.
