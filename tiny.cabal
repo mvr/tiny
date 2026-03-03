@@ -1,0 +1,49 @@
+cabal-version:      3.0
+name:               tiny
+version:            0.1.0.0
+-- synopsis:
+-- description:
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             mvr
+maintainer:         mitchell.v.riley@gmail.com
+category:           Language
+build-type:         Simple
+
+common warnings
+    ghc-options:
+        -Wall -funbox-strict-fields -Wno-unused-imports
+        -Wno-unused-top-binds -Wno-name-shadowing
+
+executable tiny
+    import:           warnings
+    main-is:          Main.hs
+    -- other-modules:
+    -- other-extensions:
+    build-depends:
+        base ^>=4.19.2.0
+      , megaparsec
+    hs-source-dirs:   .
+    default-extensions:
+        BangPatterns
+        BlockArguments
+        ConstraintKinds
+        DeriveFunctor
+        DerivingVia
+        FlexibleContexts
+        FlexibleInstances
+        FunctionalDependencies
+        ImplicitParams
+        LambdaCase
+        MultiParamTypeClasses
+        NoMonomorphismRestriction
+        OverloadedStrings
+        PatternSynonyms
+        RankNTypes
+        RecordWildCards
+        ScopedTypeVariables
+        StandaloneDeriving
+        Strict
+        TupleSections
+        ViewPatterns
+    default-language: GHC2021
