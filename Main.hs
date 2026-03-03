@@ -205,12 +205,12 @@ data Val
   deriving (Show)
 
 data Neutral
-  = NVar Lvl [Val]
-  | NApp Neutral Val
+  = NApp Neutral Val
   | NFst Neutral
   | NSnd Neutral
 
   ---- New:
+  | NVar Lvl [Val]
   | NRootElim (BindTiny Neutral)
 
   ---- Cubical:
@@ -511,21 +511,21 @@ quote = \case
 
   VPath x a a0 a1              -> Path x (nextVar \var -> quote (a ∙ var)) (quote a0) (quote a1)
 
-  (VLam x c)         -> Lam x (nextVar \var -> quote (c ∙ var))
+  (VLam x c)                   -> Lam x (nextVar \var -> quote (c ∙ var))
 
-  (VPair fst snd)    -> Pair (quote fst) (quote snd)
+  (VPair fst snd)              -> Pair (quote fst) (quote snd)
 
   ---- New:
-  (VRootIntro c)   -> RootIntro (defineStuck (quote (appRootClosureStuck c)))
+  (VRootIntro c)               -> RootIntro (defineStuck (quote (appRootClosureStuck c)))
 
 
   VTiny0                       -> Tiny0
   VTiny1                       -> Tiny1
   (VPLam x p a0 a1)            -> PLam x (nextVar \var -> quote (p ∙ var)) (quote a0) (quote a1)
 
-  (VNeutral ne)              -> quoteNeutral ne
+  (VNeutral ne)                -> quoteNeutral ne
 
-  v                          -> error $ "Can't quote " ++ show v
+  v                            -> error $ "Can't quote " ++ show v
 
 quoteNeutral :: FreshArg => EnvArg Val => Neutral -> Tm
 quoteNeutral (NVar x keys) = Var (lvl2Ix ?env x) (fmap quote keys)
