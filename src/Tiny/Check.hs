@@ -131,7 +131,7 @@ infer r = case r of
                 pure (Var i keyst, ty)
               _ -> report ("too many keys provided: " ++ x)
           | otherwise = go (i + 1) env' locals' keys
-        go i (EnvLock _) (LocalsLock _) [] = report ("not enough keys provided: " ++ x)
+        go _ (EnvLock _) (LocalsLock _) [] = report ("not enough keys provided: " ++ x)
         go i (EnvLock fenv) (LocalsLock locals') (key : keys) = do
           keyt <- check key VTiny
           let keyv = eval keyt

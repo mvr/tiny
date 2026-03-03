@@ -76,7 +76,7 @@ instance Keyable v => Keyable (Env v) where
 class Substitutable a b | a -> b where
   sub :: FreshArg => Val -> Lvl -> a -> b
 
-instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable Val Val where
+instance Substitutable Val Val where
   sub v i = \case
     VNeutral n -> sub v i n
     VU -> VU
@@ -92,7 +92,7 @@ instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable V
     VPath l c a0 a1 -> VPath l (sub v i c) (sub v i a0) (sub v i a1)
     VPLam l c a0 a1 -> VPLam l (sub v i c) (sub v i a0) (sub v i a1)
 
-instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable Neutral Val where
+instance Substitutable Neutral Val where
   sub v i = \case
     NVar j ks
       | i == j -> addKeys (fmap (sub v i) ks) v
@@ -103,24 +103,24 @@ instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable N
     NRootElim bt -> freshLvl $ \fr -> doRootElim (sub v i (bt ∙ fr)) fr
     NPApp p t a0 a1 -> doPApp (sub v i p) (sub v i t) (sub v i a0) (sub v i a1)
 
-instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable Normal Val where
+instance Substitutable Normal Val where
   sub v i (Normal _ a) = sub v i a
 
-instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable Closure Closure where
+instance Substitutable Closure Closure where
   sub v i (Closure env t) = Closure (sub v i env) t
 
-instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable RootClosure RootClosure where
+instance Substitutable RootClosure RootClosure where
   sub v i (RootClosure env t) = RootClosure (sub v i env) t
 
-instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable (BindTiny Neutral) (BindTiny Val) where
+instance Substitutable (BindTiny Neutral) (BindTiny Val) where
   sub v i bt@(BindTiny l _ _) = freshLvl $ \fr -> BindTiny l fr (sub v i (bt ∙ fr))
 
-instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable (EnvVars Val) (EnvVars Val) where
+instance Substitutable (EnvVars Val) (EnvVars Val) where
   sub _ _ EnvEmpty = EnvEmpty
   sub v i (EnvVal e env) = EnvVal (sub v i e) (sub v i env)
   sub v i (EnvLock f) = EnvLock (sub v i . f)
 
-instance (Apply Closure Val Val, CoApply RootClosure Lvl Val) => Substitutable (Env Val) (Env Val) where
+instance Substitutable (Env Val) (Env Val) where
   sub v i env = env {envFresh = max (envFresh env) ?fresh, envVars = sub v i (envVars env)}
 
 -- Switch one de Bruijn level for another.
@@ -182,7 +182,7 @@ instance Renameable (Env Val) where
         envVars = rename v i (envVars env)
       }
 
-doApp :: (FreshArg, Apply Closure Val Val) => Val -> Val -> Val
+doApp :: FreshArg => Val -> Val -> Val
 doApp (VLam _ t) u = t ∙ u
 doApp (VNeutral ne) a = VNeutral (NApp ne a)
 doApp t u = error $ "Unexpected in App: " ++ show t ++ " applied to " ++ show u
@@ -197,12 +197,12 @@ doSnd (VPair _ b) = b
 doSnd (VNeutral ne) = VNeutral (NSnd ne)
 doSnd t = error $ "Unexpected in snd: " ++ show t
 
-doRootElim :: (FreshArg, CoApply RootClosure Lvl Val) => Val -> Lvl -> Val
+doRootElim :: FreshArg => Val -> Lvl -> Val
 doRootElim (VRootIntro c) lvl = coapply c lvl
 doRootElim (VNeutral ne) lvl = VNeutral (NRootElim (BindTiny "geni" lvl ne))
 doRootElim v _ = error $ "Unexpected in relim: " ++ show v
 
-doPApp :: (FreshArg, Apply Closure Val Val) => Val -> Val -> Val -> Val -> Val
+doPApp :: FreshArg => Val -> Val -> Val -> Val -> Val
 doPApp _ VTiny0 a0 _ = a0
 doPApp _ VTiny1 _ a1 = a1
 doPApp (VPLam _ c _ _) t _ _ = c ∙ t
@@ -310,7 +310,7 @@ quote = \case
   VTiny1 -> Tiny1
   VPLam x p a0 a1 -> PLam x (nextVar \var -> quote (p ∙ var)) (quote a0) (quote a1)
   VNeutral ne -> quoteNeutral ne
-  v -> error $ "Can't quote " ++ show v
+  -- v -> error $ "Can't quote " ++ show v
 
 quoteNeutral :: FreshArg => EnvArg Val => Neutral -> Tm
 quoteNeutral (NVar x keys) = Var (lvl2Ix ?env x) (fmap quote keys)

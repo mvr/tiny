@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 module Tiny.Parser where
 
 import Control.Monad (guard)
