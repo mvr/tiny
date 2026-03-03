@@ -15,15 +15,7 @@ common warnings
         -Wall -funbox-strict-fields -Wno-unused-imports
         -Wno-unused-top-binds -Wno-name-shadowing
 
-executable tiny
-    import:           warnings
-    main-is:          Main.hs
-    -- other-modules:
-    -- other-extensions:
-    build-depends:
-        base ^>=4.19.2.0
-      , megaparsec
-    hs-source-dirs:   .
+common extensions
     default-extensions:
         BangPatterns
         BlockArguments
@@ -45,5 +37,34 @@ executable tiny
         StandaloneDeriving
         Strict
         TupleSections
+        UndecidableInstances
         ViewPatterns
+
+library
+    import:           warnings
+    import:           extensions
     default-language: GHC2021
+    exposed-modules:
+        Tiny.Check
+        Tiny.Core
+        Tiny.Env
+        Tiny.Parser
+        Tiny.Pretty
+        Tiny.Syntax
+        Tiny.Value
+    -- other-extensions:
+    build-depends:
+        base ^>=4.19.2.0
+      , megaparsec
+    hs-source-dirs:   src
+
+executable tiny
+    import:           warnings
+    import:           extensions
+    default-language: GHC2021
+    main-is:          Main.hs
+    build-depends:
+        base ^>=4.19.2.0
+      , tiny
+      , megaparsec
+    hs-source-dirs:   app
