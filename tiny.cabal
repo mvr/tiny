@@ -50,6 +50,7 @@ library
         Tiny.Env
         Tiny.Parser
         Tiny.Pretty
+        Tiny.Renaming
         Tiny.Syntax
         Tiny.Value
     -- other-extensions:

@@ -2,6 +2,7 @@ module Tiny.Env where
 
 import Tiny.Syntax
 import Tiny.Value
+import Tiny.Renaming
 
 type EnvArg v = (?env :: Env v)
 
@@ -20,6 +21,21 @@ lvl2Ix env (Lvl x) = Ix (envLength env - x - 1)
 ix2Lvl :: Env v -> Ix -> Lvl
 ix2Lvl env (Ix x) = Lvl (envLength env - x - 1)
 
+envLookup :: EnvVars v -> Ix -> [Val] -> v
+envLookup env i keys = go i keys env
+  where
+    go 0 _ (EnvVal v _) = v
+    go j ks (EnvVal _ envtail) = go (j - 1) ks envtail
+    go j (k : ks) (EnvLock f) = go (j - 1) ks (f k)
+    go _ [] (EnvLock _) = error "Ran out of keys"
+    go _ _ EnvEmpty = error "Ran out of environment"
+
+withFresh :: (FreshArg => Val -> a) -> (FreshArg => a)
+withFresh act =
+  let v = VNeutral (NVar ?fresh [])
+   in let ?fresh = ?fresh + 1
+       in seq ?fresh (act v)
+
 define :: v -> (FreshArg => EnvArg v => a) -> (FreshArg => EnvArg v => a)
 define v act =
   let ?env =
@@ -31,11 +47,11 @@ define v act =
       ?fresh = ?fresh + 1
    in act
 
-envLookup :: EnvVars v -> Ix -> [Val] -> v
-envLookup env i keys = go i keys env
-  where
-    go 0 _ (EnvVal v _) = v
-    go j ks (EnvVal _ envtail) = go (j - 1) ks envtail
-    go j (k : ks) (EnvLock f) = go (j - 1) ks (f k)
-    go _ [] (EnvLock _) = error "Ran out of keys"
-    go _ _ EnvEmpty = error "Ran out of environment"
+
+defineNextVar :: (FreshArg => EnvArg Val => Val -> a) -> (FreshArg => EnvArg Val => a)
+defineNextVar act =
+  let lvl :: Int
+      lvl = envLength ?env
+      v = VNeutral (NVar (Lvl lvl) [])
+   in define v (act v)
+

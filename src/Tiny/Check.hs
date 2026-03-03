@@ -13,6 +13,7 @@ import Tiny.Core
 import Tiny.Env
 import Tiny.Syntax
 import Tiny.Value
+import Tiny.Renaming
 
 type M = Either (String, SourcePos)
 
@@ -40,10 +41,10 @@ ctxDefineUnit lvl act = defineUnit lvl $ let ?locals = LocalsLock ?locals in act
 ctxDefineStuck :: Keyable v => (FreshArg => EnvArg v => LocalsArg => a) -> (FreshArg => EnvArg v => LocalsArg => a)
 ctxDefineStuck act = defineStuck $ let ?locals = LocalsLock ?locals in act
 
-ctxNextVar :: Name -> VTy -> (FreshArg => EnvArg Val => LocalsArg => Val -> a) -> (FreshArg => EnvArg Val => LocalsArg => a)
-ctxNextVar x ty act =
+defineCtxNextVar :: Name -> VTy -> (FreshArg => EnvArg Val => LocalsArg => Val -> a) -> (FreshArg => EnvArg Val => LocalsArg => a)
+defineCtxNextVar x ty act =
   let ?locals = LocalsVal x ty ?locals
-   in nextVar act
+   in defineNextVar act
 
 report :: (?pos :: SourcePos) => String -> M a
 report msg = Left (msg, ?pos)
@@ -61,15 +62,15 @@ check t a = case (t, a) of
     u' <- ctxDefine x vt vty $ check u a'
     pure (Let x ty' t'' u')
   (RLam x t', VPi _ a' b) ->
-    Lam x <$> ctxNextVar x a' (\var -> check t' (b ∙ var))
+    Lam x <$> defineCtxNextVar x a' (\var -> check t' (b ∙ var))
   (RPair a1 b1, VSg _ aty bty) -> do
     a' <- check a1 aty
     b' <- check b1 (bty ∙ eval a')
     pure (Pair a' b')
   (RRootIntro t', VRoot a') ->
-    RootIntro <$> ctxDefineStuck (check t' (appRootClosureStuck a'))
+    RootIntro <$> ctxDefineStuck (check t' (coapplyStuck a'))
   (RLam x t', VPath _ c a0 a1) -> do
-    t'' <- ctxNextVar x VTiny (\var -> check t' (c ∙ var))
+    t'' <- defineCtxNextVar x VTiny (\var -> check t' (c ∙ var))
     unless
       ( eq a0 (define VTiny0 (eval t''))
           && eq a1 (define VTiny1 (eval t''))
@@ -96,7 +97,7 @@ infer r = case r of
     pure (Let x a' t' u', uty)
   RPi x a b -> do
     a' <- check a VU
-    b' <- ctxNextVar x (eval a') (\_ -> check b VU)
+    b' <- defineCtxNextVar x (eval a') (\_ -> check b VU)
     pure (Pi x a' b', VU)
   RApp t u -> do
     (t', tty) <- infer t
@@ -109,7 +110,7 @@ infer r = case r of
   RLam {} -> report "Can't infer type for lambda expression"
   RSg x a b -> do
     a' <- check a VU
-    b' <- ctxNextVar x (eval a') (\_ -> check b VU)
+    b' <- defineCtxNextVar x (eval a') (\_ -> check b VU)
     pure (Sg x a' b', VU)
   RPair {} -> report "Can't infer type for pair"
   RFst p -> do
@@ -143,7 +144,7 @@ infer r = case r of
     a' <- ctxDefineStuck $ check a VU
     pure (Root a', VU)
   RRootElim x t -> do
-    (t', tty) <- ctxNextVar x VTiny (\_ -> infer t)
+    (t', tty) <- defineCtxNextVar x VTiny (\_ -> infer t)
     case tty of
       VRoot c -> pure (RootElim x t', coapply c (Lvl $ envLength ?env))
       _ -> report "Expected a root type"
@@ -153,4 +154,4 @@ infer r = case r of
   RPath a0 a1 -> do
     (a0', aty) <- infer a0
     a1' <- check a1 aty
-    pure (Path "_" (ctxNextVar "_" VTiny (\_ -> quote aty)) a0' a1', VU)
+    pure (Path "_" (defineCtxNextVar "_" VTiny (\_ -> quote aty)) a0' a1', VU)
