@@ -36,6 +36,17 @@ data Raw
   | RPath Raw Raw
   deriving (Show)
 
+data RawArg = RawArg Name Raw
+  deriving (Show)
+
+data RawDecl
+  = RTopDef SourcePos Name [RawArg] (Maybe Raw) Raw
+  deriving (Show)
+
+data RawProgram
+  = RProgram [RawDecl] (Maybe Raw)
+  deriving (Show)
+
 type Ty = Tm
 
 data Tm
@@ -49,6 +60,7 @@ data Tm
   | Fst Tm
   | Snd Tm
   | Var Ix [Tm]
+  | GlobalVar Name
   | Tiny
   | Root Ty
   | RootIntro Tm

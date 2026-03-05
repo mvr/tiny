@@ -21,6 +21,7 @@ lvl2Ix env (Lvl x) = Ix (envLength env - x - 1)
 ix2Lvl :: Env v -> Ix -> Lvl
 ix2Lvl env (Ix x) = Lvl (envLength env - x - 1)
 
+-- TODO: use implicit ?env?
 envLookup :: EnvVars v -> Ix -> [Val] -> v
 envLookup env i keys = go i keys env
   where
@@ -29,6 +30,11 @@ envLookup env i keys = go i keys env
     go j (k : ks) (EnvLock f) = go (j - 1) ks (f k)
     go _ [] (EnvLock _) = error "Ran out of keys"
     go _ _ EnvEmpty = error "Ran out of environment"
+
+globalLookup :: Globals -> Name -> Val
+globalLookup (Globals names) x = case lookup x names of
+  Just (v, _) -> v
+  Nothing -> error ("No global with name " ++ x)
 
 withFresh :: (FreshArg => Val -> a) -> (FreshArg => a)
 withFresh act =
@@ -47,11 +53,9 @@ define v act =
       ?fresh = ?fresh + 1
    in act
 
-
 defineNextVar :: (FreshArg => EnvArg Val => Val -> a) -> (FreshArg => EnvArg Val => a)
 defineNextVar act =
   let lvl :: Int
       lvl = envLength ?env
       v = VNeutral (NVar (Lvl lvl) [])
    in define v (act v)
-

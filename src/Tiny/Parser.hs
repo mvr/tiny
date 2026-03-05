@@ -48,6 +48,8 @@ keyword x =
     || x == "λ"
     || x == "U"
     || x == "T"
+    || x == "t0"
+    || x == "t1"
     || x == "rintro"
     || x == "relim"
     || x == "fst"
@@ -80,7 +82,7 @@ pVar = do
 
 pAtom :: Parser Raw
 pAtom =
-  withPos (pVar <|> (RU <$ symbol "U") <|> (RTiny <$ symbol "T") <|> (RTiny0 <$ symbol "0") <|> (RTiny1 <$ symbol "1"))
+  withPos ((RU <$ symbol "U") <|> (RTiny <$ symbol "T") <|> (RTiny0 <$ symbol "t0") <|> (RTiny1 <$ symbol "t1") <|> pVar)
     <|> parens pRaw
 
 pBinder :: Parser Name
@@ -181,6 +183,25 @@ pLet = do
   u <- pRaw
   pure $ RLet x a t u
 
+typedArgGroup :: Parser [RawArg]
+typedArgGroup = do
+  (xs, a) <- parens ((,) <$> some pBinder <*> (char ':' *> pRaw))
+  pure (fmap (`RawArg` a) xs)
+
+pTopDef :: Parser RawDecl
+pTopDef = do
+  pos <- getSourcePos
+  x <- pIdent
+  args <- concat <$> many typedArgGroup
+  mty <- optional (try (char ':' *> pRaw))
+  symbol ":="
+  t <- pRaw
+  symbol ";"
+  pure (RTopDef pos x args mty t)
+
+pTopDecl :: Parser RawDecl
+pTopDecl = try pTopDef
+
 pRaw :: Parser Raw
 pRaw =
   withPos
@@ -198,10 +219,13 @@ pRaw =
         <|> funOrSpine
     )
 
-pSrc :: Parser Raw
-pSrc = ws *> pRaw <* eof
+pProgram :: Parser RawProgram
+pProgram = RProgram <$> many pTopDecl <*> optional pRaw
 
-parseString :: String -> IO Raw
+pSrc :: Parser RawProgram
+pSrc = ws *> pProgram <* eof
+
+parseString :: String -> IO RawProgram
 parseString src =
   case parse pSrc "(stdin)" src of
     Left e -> do
@@ -210,13 +234,13 @@ parseString src =
     Right t ->
       pure t
 
-parseStdin :: IO (Raw, String)
+parseStdin :: IO (RawProgram, String)
 parseStdin = do
   file <- getContents
   tm <- parseString file
-  pure (tm, "(stdin)")
+  pure (tm, file)
 
-parseFile :: String -> IO (Raw, String)
+parseFile :: String -> IO (RawProgram, String)
 parseFile fn = do
   file <- readFile fn
   tm <- parseString file

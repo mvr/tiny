@@ -69,13 +69,14 @@ prettyTm prec = go prec
           goKeys [] = id
           goKeys [k] = go p ns k
           goKeys (k : ks) = go p ns k . (", " ++) . goKeys ks
+      GlobalVar x -> (x ++)
       Tiny -> ("T" ++)
       Root a -> par p pip $ ("√ " ++) . go pip ("L" : ns) a
       RootIntro t -> par p letp $ ("rintro " ++) . go letp ("L" : ns) t
       RootElim (freshName ns -> x) t ->
         par p letp $ ("relim " ++) . (x ++) . (". " ++) . go letp (x : ns) t
-      Tiny0 -> ("0" ++)
-      Tiny1 -> ("1" ++)
+      Tiny0 -> ("t0" ++)
+      Tiny1 -> ("t1" ++)
       Path (freshName ns -> x) a a0 a1 ->
         ("PathP (" ++) . (x ++) . (". " ++) . go pip (x : ns) a . (") " ++) . go atomp ns a0 . (' ' :) . go atomp ns a1
       PLam (freshName ns -> x) t _ _ ->

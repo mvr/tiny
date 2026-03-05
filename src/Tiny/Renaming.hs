@@ -36,6 +36,7 @@ instance Renameable Neutral where
     NVar j ks
       | i == j -> NVar v (fmap (rename v i) ks)
       | otherwise -> NVar j (fmap (rename v i) ks)
+    NGlobalVar x -> NGlobalVar x
     NApp f a -> NApp (rename v i f) (rename v i a)
     NFst a -> NFst (rename v i a)
     NSnd a -> NSnd (rename v i a)
@@ -107,6 +108,7 @@ instance Keyable Val where
 instance Keyable Neutral where
   addKeys ks = \case
     NVar lvl keys -> NVar lvl (ks ++ fmap (addKeys ks) keys)
+    NGlobalVar x -> NGlobalVar x
     NApp f a -> NApp (addKeys ks f) (addKeys ks a)
     NFst a -> NFst (addKeys ks a)
     NSnd a -> NSnd (addKeys ks a)

@@ -5,18 +5,18 @@ import Tiny.Syntax
 import Tiny.Value
 import Tiny.Renaming
 
-infixl 8 ∙
-
 -- Apply
 ------------------------------------------------------------
 
+infixl 8 ∙
+
 class Apply a b c | a -> b c where
-  (∙) :: FreshArg => a -> b -> c
+  (∙) :: (FreshArg, ?globals :: Globals) => a -> b -> c
 
 instance Apply Val Val Val where
   (∙) = doApp
 
-doApp :: FreshArg => Val -> Val -> Val
+doApp :: (FreshArg, ?globals :: Globals) => Val -> Val -> Val
 doApp (VLam _ t) u = t ∙ u
 doApp (VNeutral ne) a = VNeutral (NApp ne a)
 doApp t u = error $ "Unexpected in App: " ++ show t ++ " applied to " ++ show u
@@ -33,17 +33,17 @@ instance Renameable a => Apply (BindTiny a) Lvl a where
 ------------------------------------------------------------
 
 class CoApply a b c | a -> b c where
-  coapply :: FreshArg => a -> b -> c
+  coapply :: (FreshArg, ?globals :: Globals) => a -> b -> c
 
 instance CoApply Val Lvl Val where
   coapply = doRootElim
 
-doRootElim :: FreshArg => Val -> Lvl -> Val
+doRootElim :: (FreshArg, ?globals :: Globals) => Val -> Lvl -> Val
 doRootElim (VRootIntro c) lvl = coapply c lvl
 doRootElim (VNeutral ne) lvl = VNeutral (NRootElim (BindTiny "geni" lvl ne)) -- TODO: need to gensym a reasonable name
 doRootElim v _ = error $ "Unexpected in relim: " ++ show v
 
-defineUnit :: Lvl -> (FreshArg => EnvArg Val => a) -> (FreshArg => EnvArg Val => a)
+defineUnit :: Lvl -> ((FreshArg, ?globals :: Globals) => EnvArg Val => a) -> ((FreshArg, ?globals :: Globals) => EnvArg Val => a)
 defineUnit lvl act =
   let ?env =
         ?env
@@ -70,7 +70,7 @@ defineStuck act =
       ?fresh = ?fresh + 1
    in act
 
-coapplyStuck :: FreshArg => RootClosure -> Val
+coapplyStuck :: (FreshArg, ?globals :: Globals) => RootClosure -> Val
 coapplyStuck (RootClosure cloenv t) =
   let ?env = cloenv {envFresh = max (envFresh cloenv) ?fresh}
    in defineStuck (eval t)
@@ -88,14 +88,14 @@ doSnd (VPair _ b) = b
 doSnd (VNeutral ne) = VNeutral (NSnd ne)
 doSnd t = error $ "Unexpected in snd: " ++ show t
 
-doPApp :: FreshArg => Val -> Val -> Val -> Val -> Val
+doPApp :: (FreshArg, ?globals :: Globals) => Val -> Val -> Val -> Val -> Val
 doPApp _ VTiny0 a0 _ = a0
 doPApp _ VTiny1 _ a1 = a1
 doPApp (VPLam _ c _ _) t _ _ = c ∙ t
 doPApp (VNeutral ne) t a0 a1 = VNeutral (NPApp ne t a0 a1)
 doPApp v _ _ _ = error $ "Unexpected in papp: " ++ show v
 
-eval :: FreshArg => EnvArg Val => Tm -> Val
+eval :: (FreshArg, EnvArg Val, ?globals :: Globals) => Tm -> Val
 eval t = case t of
   U -> VU
   Let _ _ t' u -> define (eval t') (eval u)
@@ -107,6 +107,7 @@ eval t = case t of
   Fst a -> doFst (eval a)
   Snd a -> doSnd (eval a)
   Var x keys -> envLookup (envVars ?env) x (fmap eval keys)
+  GlobalVar x -> globalLookup ?globals x
   Tiny -> VTiny
   Root a -> VRoot (RootClosure ?env a)
   RootIntro t' -> VRootIntro (RootClosure ?env t')
@@ -117,7 +118,7 @@ eval t = case t of
   PLam x a a0 a1 -> VPLam x (Closure ?env a) (eval a0) (eval a1)
   PApp p t' a0 a1 -> doPApp (eval p) (eval t') (eval a0) (eval a1)
 
-quote :: FreshArg => EnvArg Val => Val -> Tm
+quote :: (FreshArg, ?globals :: Globals, EnvArg Val) => Val -> Tm
 quote = \case
   VU -> U
   VPi x a b -> Pi x (quote a) (defineNextVar \var -> quote (b ∙ var))
@@ -133,8 +134,9 @@ quote = \case
   VPLam x p a0 a1 -> PLam x (defineNextVar \var -> quote (p ∙ var)) (quote a0) (quote a1)
   VNeutral ne -> quoteNeutral ne
 
-quoteNeutral :: FreshArg => EnvArg Val => Neutral -> Tm
+quoteNeutral :: (FreshArg, ?globals :: Globals, EnvArg Val) => Neutral -> Tm
 quoteNeutral (NVar x keys) = Var (lvl2Ix ?env x) (fmap quote keys)
+quoteNeutral (NGlobalVar x) = GlobalVar x
 quoteNeutral (NApp f a) = App (quoteNeutral f) (quote a)
 quoteNeutral (NFst a) = Fst (quoteNeutral a)
 quoteNeutral (NSnd a) = Snd (quoteNeutral a)
@@ -145,13 +147,13 @@ quoteNeutral (NRootElim bt@(BindTiny l _ _)) =
      in define (makeVarLvl lvl) $ quoteNeutral (bt ∙ lvl)
 quoteNeutral (NPApp p t a0 a1) = PApp (quoteNeutral p) (quote t) (quote a0) (quote a1)
 
-nf :: FreshArg => EnvArg Val => Tm -> Tm
+nf :: (FreshArg, ?globals :: Globals) => EnvArg Val => Tm -> Tm
 nf t = quote (eval t)
 
 -- Conversion
 ------------------------------------------------------------
 
-eq :: FreshArg => EnvArg Val => Val -> Val -> Bool
+eq :: (FreshArg, ?globals :: Globals) => EnvArg Val => Val -> Val -> Bool
 eq VU VU = True
 eq (VNeutral ne1) (VNeutral ne2) = eqNE ne1 ne2
 eq (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) = eq aty1 aty2 && defineNextVar (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
@@ -176,7 +178,7 @@ eq (VPLam _ a _ _) p' = defineNextVar (\var -> eq (a ∙ var) (p' ∙ var))
 eq p (VPLam _ a' _ _) = defineNextVar (\var -> eq (p ∙ var) (a' ∙ var))
 eq _ _ = False
 
-eqNE :: FreshArg => EnvArg Val => Neutral -> Neutral -> Bool
+eqNE :: (FreshArg, ?globals :: Globals) => EnvArg Val => Neutral -> Neutral -> Bool
 eqNE (NVar i ikeys) (NVar j jkeys) = i == j && all (uncurry eq) (zip ikeys jkeys)
 eqNE (NApp f1 a1) (NApp f2 a2) = eqNE f1 f2 && eq a1 a2
 eqNE (NFst p1) (NFst p2) = eqNE p1 p2
@@ -190,7 +192,7 @@ eqNE _ _ = False
 
 -- Substitutes a value for a variable. This may cause reduction.
 class Substitutable a b | a -> b where
-  sub :: FreshArg => Val -> Lvl -> a -> b
+  sub :: (FreshArg, ?globals :: Globals) => Val -> Lvl -> a -> b
 
 instance Substitutable Val Val where
   sub v i = \case
@@ -208,11 +210,13 @@ instance Substitutable Val Val where
     VPath l c a0 a1 -> VPath l (sub v i c) (sub v i a0) (sub v i a1)
     VPLam l c a0 a1 -> VPLam l (sub v i c) (sub v i a0) (sub v i a1)
 
+-- Not `Substitutable Neutral Val`, because substituting might unstick things
 instance Substitutable Neutral Val where
   sub v i = \case
     NVar j ks
       | i == j -> addKeys (fmap (sub v i) ks) v
       | otherwise -> VNeutral (NVar j (fmap (sub v i) ks))
+    NGlobalVar x -> VNeutral (NGlobalVar x)
     NApp f a -> sub v i f ∙ sub v i a
     NFst a -> doFst (sub v i a)
     NSnd b -> doSnd (sub v i b)

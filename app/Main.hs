@@ -1,14 +1,16 @@
 module Main where
 
+import Control.Monad (forM_)
 import System.Environment (getArgs)
 import Text.Megaparsec (SourcePos (SourcePos), initialPos, unPos)
 import Text.Printf (printf)
 
-import Tiny.Check (infer, withEmptyCtx)
+import Tiny.Check (withEmptyCtx, withGlobals, inferProgram)
 import Tiny.Core (nf, quote)
 import Tiny.Parser (parseFile, parseStdin, parseString)
 import Tiny.Pretty ()
-import Tiny.Syntax (Raw)
+import Tiny.Syntax (RawProgram)
+import Tiny.Value
 
 displayError :: String -> (String, SourcePos) -> IO ()
 displayError file (msg, pos) = do
@@ -23,23 +25,33 @@ displayError file (msg, pos) = do
   printf "%s | %s\n" lpad (replicate (colnum - 1) ' ' ++ "^")
   printf "%s\n" msg
 
-mainWith :: IO [String] -> IO (Raw, String) -> IO ()
+mainWith :: IO [String] -> IO (RawProgram, String) -> IO ()
 mainWith getOpt getRaw = do
   opts <- getOpt
   case opts of
     ["nf"] -> do
       (t, file) <- getRaw
-      case withEmptyCtx (initialPos file) (infer t) of
+      case withEmptyCtx (initialPos file) (inferProgram t) of
         Left err -> displayError file err
-        Right (t', a) -> do
-          print $ withEmptyCtx (initialPos file) (nf t')
+        Right (gs, Nothing) -> putStrLn "Checked!"
+        Right (gs, Just (t, ty)) -> do
+          let nft = withEmptyCtx (initialPos file) $ withGlobals gs $ nf t
+          print nft
           putStrLn "  :"
-          print $ withEmptyCtx (initialPos file) (quote a)
+          print ty
     ["type"] -> do
       (t, file) <- getRaw
-      case withEmptyCtx (initialPos file) (infer t) of
+      case withEmptyCtx (initialPos file) (inferProgram t) of
         Left err -> displayError file err
-        Right (_, a) -> print $ withEmptyCtx (initialPos file) (quote a)
+        Right (Globals _, Nothing) -> putStrLn "Checked!"
+        Right (Globals _, Just (_, ty)) -> print ty
+    ["types"] -> do
+      (t, file) <- getRaw
+      case withEmptyCtx (initialPos file) (inferProgram t) of
+        Left err -> displayError file err
+        Right (Globals gs, _) -> forM_ (reverse gs) $ \(x, (v, vty)) ->
+          let ty = withEmptyCtx (initialPos file) $ withGlobals (Globals gs) $ quote vty in
+          putStrLn (x ++ " : " ++ show ty)
     _ -> putStrLn "unknown option"
 
 main :: IO ()

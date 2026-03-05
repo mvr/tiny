@@ -30,6 +30,9 @@ instance Functor EnvVars where
   fmap f (EnvVal v env) = EnvVal (f v) (fmap f env)
   fmap f (EnvLock fenv) = EnvLock (\v -> fmap f (fenv v))
 
+-- TODO: Where should this naturally go
+newtype Globals = Globals { globalNames :: [(Name, (Val, VTy))]}
+
 data Closure = Closure (Env Val) Tm
 
 data RootClosure = RootClosure (Env Val) Tm
@@ -60,6 +63,7 @@ data Neutral
   | NFst Neutral
   | NSnd Neutral
   | NVar Lvl [Val]
+  | NGlobalVar Name
   | NRootElim (BindTiny Neutral)
   | NPApp Neutral Val Val Val
   deriving (Show)

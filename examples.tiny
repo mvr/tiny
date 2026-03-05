@@ -1,42 +1,41 @@
-let the : (A : U) -> A -> A
-    := \A a. a;
+the (A : U) (a : A) : A := a;
 
-let const : (A B : U) -> A -> B -> A
-          := \A B x y. x;
+const : (A B : U) -> A -> B -> A
+  := \A B x y. x;
 
-let comp : (A : U) (B : U) (C : U)
-    -> (B -> C)
-    -> (A -> B)    
-    -> (A -> C)    
-  := \A B C f g x. f (g x);
+comp (A : U) (B : U) (C : U)
+    (f : B -> C)
+    (g : A -> B)
+    : (A -> C)
+  := \x. f (g x);
 
-let extract : (A : v/ U)
-    -> (v/ relim i. A[i]) 
-    -> relim i. A
-  := \A x. relim i. x;
+extract
+  (A : v/ U)
+  (x : v/ relim i. A[i])
+  : relim i. A
+  := relim i. x;
 
-let duplicate : (A : v/ U)
-    -> (v/ relim i. A[i]) 
-    -> (v/ v/ relim i. A[i, i]) 
-  := \A r. rintro rintro relim i. r[i, i];
+duplicate (A : v/ U)
+  (r : v/ relim i. A[i])
+  : (v/ v/ relim i. A[i, i])
+  := rintro rintro relim i. r[i, i];
 
-let iteratedkeys : T -> v/ (T -> T)
+iteratedkeys : T -> v/ (T -> T)
   := \i. rintro (\j. i[i[i[i[j]]]]);
 
-let functorial : (A : v/ U) (B : v/ U)
-    -> (v/ ((relim i. A[i]) -> (relim i. B[i]))) 
-    -> (v/ (relim i. A[i])) -> (v/ relim i. B[i])
-  := \A B f r. rintro (relim i. f[i]) (relim i. r[i]);
+functorial (A : v/ U) (B : v/ U)
+  (f : v/ ((relim i. A[i]) -> (relim i. B[i])))
+  : (v/ (relim i. A[i])) -> (v/ relim i. B[i])
+  := \r. rintro (relim i. f[i]) (relim i. r[i]);
 
-let preserve_sigma : (A : v/ U) (B : v/ (relim i. A[i]) -> U) 
-    -> (v/ (x : relim i. A[i]) * (relim i. B[i]) x)
-    -> (x : v/ relim i. A[i]) * v/ (relim i. B[i]) (relim i. x[i])
+preserve_sigma (A : v/ U) (B : v/ (relim i. A[i]) -> U)
+  (r : v/ (x : relim i. A[i]) * (relim i. B[i]) x)
+  : (x : v/ relim i. A[i]) * v/ (relim i. B[i]) (relim i. x[i])
+  := < rintro fst relim i. r[i], rintro snd relim i. r[i] >;
 
-    := \A B r. < rintro fst relim i. r[i], rintro snd relim i. r[i] >;
-
-let preserve_sigma_inv : (A : v/ U) (B : v/ (relim i. A[i]) -> U) 
-    -> ((x : v/ relim i. A[i]) * v/ (relim i. B[i]) (relim i. x[i]))
-    -> (v/ (x : relim i. A[i]) * (relim i. B[i]) x)
-    := \A B p. rintro < relim i. fst p[i] , relim i. snd p[i] >;
+preserve_sigma_inv (A : v/ U) (B : v/ (relim i. A[i]) -> U)
+  (p : (x : v/ relim i. A[i]) * v/ (relim i. B[i]) (relim i. x[i]))
+  : (v/ (x : relim i. A[i]) * (relim i. B[i]) x)
+  := rintro < relim i. fst p[i] , relim i. snd p[i] >;
 
 T
