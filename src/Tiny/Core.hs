@@ -197,10 +197,10 @@ nf t = quote (eval t)
 -- Conversion
 ------------------------------------------------------------
 
-eq :: (FreshArg, ?globals :: Globals) => EnvArg Val => Val -> Val -> Bool
+eq :: (FreshArg, ?globals :: Globals) => Val -> Val -> Bool
 eq VU VU = True
 eq (VNeutral ne1) (VNeutral ne2) = eqNE ne1 ne2
-eq (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) = eq aty1 aty2 && defineNextVar (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
+eq (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) = eq aty1 aty2 && withFresh (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
 eq (VTyCon tc1 ps1) (VTyCon tc2 ps2) =
   tyConName tc1 == tyConName tc2
     && length ps1 == length ps2
@@ -217,34 +217,34 @@ eq (VConFun ci1 sp1) (VConFun ci2 sp2) =
   conName ci1 == conName ci2
     && length sp1 == length sp2
     && and (zipWith eq sp1 sp2)
-eq (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) = eq aty1 aty2 && defineNextVar (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
+eq (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) = eq aty1 aty2 && withFresh (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
 eq VTiny VTiny = True
-eq (VRoot a) (VRoot a') = defineStuck $ eq (coapplyStuck a) (coapplyStuck a')
 eq VTiny0 VTiny0 = True
 eq VTiny1 VTiny1 = True
+eq (VRoot a) (VRoot a') = freshLvl $ \_ -> eq (coapplyStuck a) (coapplyStuck a')
 eq (VPath _ c a0 a1) (VPath _ c' a0' a1') =
-  defineNextVar (\var -> eq (c ∙ var) (c' ∙ var))
+  withFresh (\var -> eq (c ∙ var) (c' ∙ var))
     && eq a0 a0'
     && eq a1 a1'
-eq (VLam _ b) (VLam _ b') = defineNextVar (\var -> eq (b ∙ var) (b' ∙ var))
-eq (VLam _ b) f' = defineNextVar (\var -> eq (b ∙ var) (f' ∙ var))
-eq f (VLam _ b') = defineNextVar (\var -> eq (f ∙ var) (b' ∙ var))
+eq (VLam _ b) (VLam _ b') = withFresh (\var -> eq (b ∙ var) (b' ∙ var))
+eq (VLam _ b) f' = withFresh (\var -> eq (b ∙ var) (f' ∙ var))
+eq f (VLam _ b') = withFresh (\var -> eq (f ∙ var) (b' ∙ var))
 eq (VPair a1 b1) (VPair a2 b2) = eq a1 a2 && eq b1 b2
 eq (VPair a1 b1) p2 = eq a1 (doFst p2) && eq b1 (doSnd p2)
 eq p1 (VPair a2 b2) = eq (doFst p1) a2 && eq (doSnd p1) b2
-eq (VRootIntro a1) (VRootIntro a2) = defineStuck $ eq (coapplyStuck a1) (coapplyStuck a2)
-eq (VRootIntro a1) r2 = defineStuck $ eq (coapplyStuck a1) (freshLvl $ \fr -> doRootElim (addKey (makeVarLvl fr) r2) fr)
-eq r1 (VRootIntro a2) = defineStuck $ eq (freshLvl $ \fr -> doRootElim (addKey (makeVarLvl fr) r1) fr) (coapplyStuck a2)
-eq (VPLam _ a _ _) (VPLam _ a' _ _) = defineNextVar (\var -> eq (a ∙ var) (a' ∙ var))
-eq (VPLam _ a _ _) p' = defineNextVar (\var -> eq (a ∙ var) (p' ∙ var))
-eq p (VPLam _ a' _ _) = defineNextVar (\var -> eq (p ∙ var) (a' ∙ var))
+eq (VRootIntro a1) (VRootIntro a2) = freshLvl $ \_ -> eq (coapplyStuck a1) (coapplyStuck a2)
+eq (VRootIntro a1) r2 = freshLvl $ \_ -> eq (coapplyStuck a1) (freshLvl $ \fr -> doRootElim (addKey (makeVarLvl fr) r2) fr)
+eq r1 (VRootIntro a2) = freshLvl $ \_ -> eq (freshLvl $ \fr -> doRootElim (addKey (makeVarLvl fr) r1) fr) (coapplyStuck a2)
+eq (VPLam _ a _ _) (VPLam _ a' _ _) = withFresh (\var -> eq (a ∙ var) (a' ∙ var))
+eq (VPLam _ a _ _) p' = withFresh (\var -> eq (a ∙ var) (p' ∙ var))
+eq p (VPLam _ a' _ _) = withFresh (\var -> eq (p ∙ var) (a' ∙ var))
 eq _ _ = False
 
-eqNE :: (FreshArg, ?globals :: Globals) => EnvArg Val => Neutral -> Neutral -> Bool
+eqNE :: (FreshArg, ?globals :: Globals)  => Neutral -> Neutral -> Bool
 eqNE (NVar i ikeys) (NVar j jkeys) = i == j && all (uncurry eq) (zip ikeys jkeys)
 eqNE (NCase ne1 _ b1 alts1) (NCase ne2 _ b2 alts2) =
   eqNE ne1 ne2
-    && defineNextVar (\var -> eq (b1 ∙ var) (b2 ∙ var))
+    && withFresh (\var -> eq (b1 ∙ var) (b2 ∙ var))
     && length alts1 == length alts2
     && and (zipWith eqAlt alts1 alts2)
   where
@@ -253,7 +253,7 @@ eqNE (NCase ne1 _ b1 alts1) (NCase ne2 _ b2 alts2) =
 eqNE (NApp f1 a1) (NApp f2 a2) = eqNE f1 f2 && eq a1 a2
 eqNE (NFst p1) (NFst p2) = eqNE p1 p2
 eqNE (NSnd p1) (NSnd p2) = eqNE p1 p2
-eqNE (NRootElim tb1) (NRootElim tb2) = freshLvl (\fr -> define (makeVarLvl fr) $ eqNE (tb1 ∙ fr) (tb2 ∙ fr))
+eqNE (NRootElim tb1) (NRootElim tb2) = freshLvl (\fr -> eqNE (tb1 ∙ fr) (tb2 ∙ fr))
 eqNE (NPApp f1 a1 _ _) (NPApp f2 a2 _ _) = eqNE f1 f2 && eq a1 a2
 eqNE _ _ = False
 
