@@ -220,6 +220,8 @@ eq (VConFun ci1 sp1) (VConFun ci2 sp2) =
 eq (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) = eq aty1 aty2 && defineNextVar (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
 eq VTiny VTiny = True
 eq (VRoot a) (VRoot a') = defineStuck $ eq (coapplyStuck a) (coapplyStuck a')
+eq VTiny0 VTiny0 = True
+eq VTiny1 VTiny1 = True
 eq (VPath _ c a0 a1) (VPath _ c' a0' a1') =
   defineNextVar (\var -> eq (c ∙ var) (c' ∙ var))
     && eq a0 a0'
