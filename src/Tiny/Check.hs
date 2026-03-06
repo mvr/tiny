@@ -31,7 +31,7 @@ withEmptyCtx pos a =
   let ?fresh = 0
       ?env = emptyEnv
       ?locals = LocalsEmpty
-      ?globals = Globals []
+      ?globals = Globals [] [] []
       ?pos = pos
    in a
 
@@ -42,7 +42,22 @@ ctxDefine :: Name -> v -> VTy -> (CheckArgs v => a) -> (CheckArgs v => a)
 ctxDefine x v ty act = define v $ let ?locals = LocalsVal x ty ?locals in act
 
 ctxDefineGlobal :: Name -> Val -> VTy -> (CheckArgs Val => a) -> (CheckArgs Val => a)
-ctxDefineGlobal x v ty act = let ?globals = Globals ((x, (v, ty)) : globalNames ?globals) in act
+ctxDefineGlobal x v ty act =
+  let gs = ?globals
+   in let ?globals = gs {globalNames = (x, (v, ty)) : globalNames gs}
+       in act
+
+ctxDefineTyConInfo :: TyConInfo -> (CheckArgs Val => a) -> (CheckArgs Val => a)
+ctxDefineTyConInfo tc act =
+  let gs = ?globals
+   in let ?globals = gs {globalTyCons = (tyConName tc, tc) : globalTyCons gs}
+       in act
+
+ctxDefineConInfo :: ConInfo -> (CheckArgs Val => a) -> (CheckArgs Val => a)
+ctxDefineConInfo ci act =
+  let gs = ?globals
+   in let ?globals = gs {globalCons = (conName ci, ci) : globalCons gs}
+       in act
 
 ctxDefineUnit :: Lvl -> (CheckArgs Val => a) -> (CheckArgs Val => a)
 ctxDefineUnit lvl act = defineUnit lvl $ let ?locals = LocalsLock ?locals in act
@@ -51,7 +66,9 @@ ctxDefineStuck :: Keyable v => (CheckArgs v => a) -> (CheckArgs v => a)
 ctxDefineStuck act = defineStuck $ let ?locals = LocalsLock ?locals in act
 
 ctxDefineNextVar :: Name -> VTy -> (CheckArgs Val => Val -> a) -> (CheckArgs Val => a)
-ctxDefineNextVar x ty act = defineNextVar let ?locals = LocalsVal x ty ?locals in act
+ctxDefineNextVar x ty act =
+  let ?locals = LocalsVal x ty ?locals
+   in defineNextVar act
 
 report :: (?pos :: SourcePos) => String -> M a
 report msg = Left (msg, ?pos)
@@ -75,11 +92,99 @@ findLocal x rkeys = go 0 (envVars ?env) ?locals rkeys
     go _ _ _ _ = error "impossible"
 
 -- TODO: error on keys
-findGlobal :: CheckArgs Val => Name -> [Raw] -> M (Maybe (Tm, VTy))
-findGlobal x rkeys = do
+findGlobalMaybe :: CheckArgs Val => Name -> Maybe (Tm, VTy)
+findGlobalMaybe x =
   case lookup x (globalNames ?globals) of
-    Just (_, vty) -> pure (Just (GlobalVar x, vty))
-    Nothing -> pure Nothing
+    Just (_, vty) -> Just (GlobalVar x, vty)
+    Nothing -> Nothing
+
+findGlobal :: CheckArgs Val => Name -> M (Tm, VTy)
+findGlobal x = do
+  case findGlobalMaybe x of
+    Just r -> pure r
+    Nothing -> report ("unknown global: " ++ x)
+
+findConInfo :: CheckArgs v => Name -> M ConInfo
+findConInfo x =
+  case lookup x (globalCons ?globals) of
+    Just ci -> pure ci
+    Nothing -> report ("unknown constructor: " ++ x)
+
+data TelArg = TelArg Name Ty
+
+withRawArgs :: CheckArgs Val => [RawArg] -> (CheckArgs Val => [TelArg] -> M a) -> M a
+withRawArgs = go []
+  where
+    go :: CheckArgs Val => [TelArg] -> [RawArg] -> (CheckArgs Val => [TelArg] -> M a) -> M a
+    go rev [] k = k (reverse rev)
+    go rev (RawArg x rawA : rest) k = do
+      a <- check rawA VU
+      let va = eval a
+      ctxDefineNextVar x va $ \_ ->
+        go (TelArg x a : rev) rest k
+
+wrapPis :: [TelArg] -> Ty -> Ty
+wrapPis infos body = foldr (\(TelArg x a) b -> Pi x a b) body infos
+
+expectTyCon :: CheckArgs v => VTy -> M (TyConInfo, [Val])
+expectTyCon = \case
+  VTyCon tc params -> pure (tc, params)
+  t -> report ("expected an inductive type, got " ++ show t)
+
+instantiateTyCon :: CheckArgs Val => ConInfo -> [Val] -> M VTy
+instantiateTyCon ci params = do
+  (_, cty) <- findGlobal (conName ci)
+  go cty params
+  where
+    go ty [] = pure ty
+    go (VPi _ _ b) (u : us) = go (b ∙ u) us
+    go ty _ = report ("not enough parameters for " ++ conName ci ++ ": " ++ show ty)
+
+orderedConInfos :: CheckArgs v => TyConInfo -> M [ConInfo]
+orderedConInfos tc = mapM findConInfo (tyConConstructors tc)
+
+withConFields ::
+  CheckArgs Val =>
+  Name ->
+  VTy ->
+  [Name] ->
+  (CheckArgs Val => [Val] -> M a) ->
+  M a
+withConFields cname = go []
+  where
+    go :: CheckArgs Val => [Val] -> VTy -> [Name] -> (CheckArgs Val => [Val] -> M a) -> M a
+    go revFields ty [] k =
+      case ty of
+        VPi {} -> report ("Wrong number of constructor fields for " ++ cname)
+        _ -> k (reverse revFields)
+    go revFields (VPi _ a b) (x : rest) k =
+      ctxDefineNextVar x a $ \var ->
+        go (var : revFields) (b ∙ var) rest k
+    go _ _ _ _ = report ("Wrong number of constructor fields for " ++ cname)
+
+inferCaseAltTy :: CheckArgs Val => [Val] -> ConInfo -> RawCaseAlt -> M VTy
+inferCaseAltTy params ci (RawCaseAlt cname xs rawBody)
+  | cname /= conName ci = report "Case constructors must match declaration order"
+  | otherwise = do
+      fty <- instantiateTyCon ci params
+      withConFields cname fty xs (\_ -> snd <$> infer rawBody)
+
+checkCaseAlt :: CheckArgs Val => [Val] -> Closure -> ConInfo -> RawCaseAlt -> M CaseAlt
+checkCaseAlt params motive ci (RawCaseAlt cname xs rawBody)
+  | cname /= conName ci = report "Case constructors must match declaration order"
+  | otherwise = do
+      fty <- instantiateTyCon ci params
+      body <- withConFields cname fty xs $ \fields -> do
+        let conVal = foldl doApp (globalLookup ?globals cname) (params ++ fields)
+        check rawBody (motive ∙ conVal)
+      pure (CaseAlt cname xs body)
+
+checkCaseAlts :: CheckArgs Val => TyConInfo -> [Val] -> Closure -> [RawCaseAlt] -> M [CaseAlt]
+checkCaseAlts tc params motive rawAlts = do
+  cis <- orderedConInfos tc
+  if length cis /= length rawAlts
+    then report "Case expressions must cover all constructors in declaration order"
+    else mapM (uncurry (checkCaseAlt params motive)) (zip cis rawAlts)
 
 check :: CheckArgs Val => Raw -> VTy -> M Tm
 check t a = case (t, a) of
@@ -95,6 +200,28 @@ check t a = case (t, a) of
     pure (Let x ty' t'' u')
   (RLam x t', VPi _ a' b) ->
     Lam x <$> ctxDefineNextVar x a' (\var -> check t' (b ∙ var))
+  (RCase scrut mmotive rawAlts, a') -> do
+    (scrut', scrutTy) <- infer scrut
+    (tc, params) <- expectTyCon scrutTy
+    let scrutVal = eval scrut'
+    (motName, motTm, motV) <- case mmotive of
+      Just (x, rawB) -> do
+        btm <- ctxDefineNextVar x scrutTy (\_ -> check rawB VU)
+        pure (x, btm, Closure ?env btm)
+      Nothing -> do
+        btm <- ctxDefineNextVar "_" scrutTy (\_ -> pure (quote a'))
+        pure ("_", btm, Closure ?env btm)
+    alts <- checkCaseAlts tc params motV rawAlts
+    unless (eq (motV ∙ scrutVal) a') $
+      report ("type mismatch: " ++ show (motV ∙ scrutVal) ++ ", " ++ show a')
+    pure (Case scrut' motName motTm alts)
+  (RSplit rawAlts, VPi x dom cod) -> do
+    (tc, params) <- expectTyCon dom
+    motive <- ctxDefineNextVar x dom (\var -> pure (quote (cod ∙ var)))
+    body <- ctxDefineNextVar x dom $ \_ -> do
+      alts <- checkCaseAlts tc params cod rawAlts
+      pure (Case (Var 0 []) x motive alts)
+    pure (Lam x body)
   (RPair a1 b1, VSg _ aty bty) -> do
     a' <- check a1 aty
     b' <- check b1 (bty ∙ eval a')
@@ -139,6 +266,25 @@ infer r = case r of
         pure (App t' u', b ∙ eval u')
       _ ->
         report "Expected a function type"
+  RCase scrut mmotive rawAlts -> do
+    (scrut', scrutTy) <- infer scrut
+    (tc, params) <- expectTyCon scrutTy
+    let scrutVal = eval scrut'
+    (motName, motTm, motV) <- case mmotive of
+      Just (x, rawB) -> do
+        btm <- ctxDefineNextVar x scrutTy (\_ -> check rawB VU)
+        pure (x, btm, Closure ?env btm)
+      Nothing -> do
+        cis <- orderedConInfos tc
+        case (cis, rawAlts) of
+          (ci : _, alt : _) -> do
+            a <- inferCaseAltTy params ci alt
+            btm <- ctxDefineNextVar "_" scrutTy (\_ -> pure (quote a))
+            pure ("_", btm, Closure ?env btm)
+          _ -> report "Inferring case expression requires at least one branch"
+    alts <- checkCaseAlts tc params motV rawAlts
+    pure (Case scrut' motName motTm alts, motV ∙ scrutVal)
+  RSplit {} -> report "Can't infer type for lambda-case"
   RLam {} -> report "Can't infer type for lambda expression"
   RSg x a b -> do
     a' <- check a VU
@@ -160,10 +306,8 @@ infer r = case r of
     case local of
       Just (tm, ty) -> pure (tm, ty)
       Nothing -> do
-        global <- findGlobal x rkeys
-        case global of
-          Just (tm, ty) -> pure (tm, ty)
-          Nothing -> report ("variable out of scope: " ++ x)
+        let global = findGlobalMaybe x
+        maybe (report ("variable out of scope: " ++ x)) pure global
   RTiny -> pure (Tiny, VU)
   RRoot a -> do
     a' <- ctxDefineStuck $ check a VU
@@ -181,35 +325,103 @@ infer r = case r of
     a1' <- check a1 aty
     pure (Path "_" (ctxDefineNextVar "_" VTiny (\_ -> quote aty)) a0' a1', VU)
 
-checkOrInfer :: CheckArgs Val => Raw -> Maybe Raw -> M (Tm, Ty)
-checkOrInfer t Nothing = do
-  (tm, vty) <- infer t
-  pure (tm, quote vty)
-checkOrInfer t (Just rawA) = do
-  atm <- check rawA VU
-  let a = eval atm
-  body <- check t a
-  pure (body, atm)
+checkOrInferBody :: CheckArgs Val => Raw -> Maybe Raw -> M (Tm, Ty)
+checkOrInferBody rhs Nothing = do
+  (body, bty) <- infer rhs
+  pure (body, quote bty)
+checkOrInferBody rhs (Just rawRet) = do
+  retty <- check rawRet VU
+  body <- check rhs (eval retty)
+  pure (body, retty)
 
-withArgs :: CheckArgs Val => ([RawArg] -> (CheckArgs Val => M (Tm, Ty)) -> M (Tm, Ty))
+withArgs :: CheckArgs Val => [RawArg] -> (CheckArgs Val => M (Tm, Ty)) -> M (Tm, Ty)
 withArgs [] action = action
-withArgs ((RawArg x a_n) : args) action = do
-  a <- check a_n VU
+withArgs (RawArg x rawA : rest) action = do
+  a <- check rawA VU
   ctxDefineNextVar x (eval a) $ \_ -> do
-    (t, b) <- withArgs args action
-    pure (Lam x t, Pi x a b)
+    (body, retty) <- withArgs rest action
+    pure (Lam x body, Pi x a retty)
 
-inferTopDef :: CheckArgs Val => [RawArg] -> Maybe Raw -> Raw -> M (Tm, VTy)
-inferTopDef args mret rhs = do
-  (body, retty) <- withArgs args $ checkOrInfer rhs mret
-  pure (body, eval retty)
+withArgsType :: CheckArgs Val => [RawArg] -> (CheckArgs Val => M Ty) -> M Ty
+withArgsType [] action = action
+withArgsType (RawArg x rawA : rest) action = do
+  a <- check rawA VU
+  ctxDefineNextVar x (eval a) $ \_ ->
+    Pi x a <$> withArgsType rest action
+
+inferTopDefNonRec :: CheckArgs Val => [RawArg] -> Maybe Raw -> Raw -> M (Tm, VTy)
+inferTopDefNonRec args mret rhs = do
+  (tm, ty) <- withArgs args (checkOrInferBody rhs mret)
+  pure (tm, eval ty)
+
+inferTopDefRec :: CheckArgs Val => Name -> [RawArg] -> Raw -> Raw -> M (Tm, VTy, Val)
+inferTopDefRec x args rawRet rhs = do
+  fullTy <- withArgsType args (check rawRet VU)
+  let fullTyV = eval fullTy
+      placeholder = VNeutral (NGlobalVar x)
+  ctxDefineGlobal x placeholder fullTyV $ do
+    (tm, _) <- withArgs args do
+      ret <- check rawRet VU
+      body <- check rhs (eval ret)
+      pure (body, ret)
+    pure (tm, fullTyV, eval tm)
+
+inferCtor :: CheckArgs Val => TyConInfo -> [TelArg] -> Int -> RawCtor -> M (ConInfo, Ty)
+inferCtor tc params idx (RawCtor c fieldsRaw) = do
+  fields <- withRawArgs fieldsRaw pure
+  let paramCount = length params
+      fieldCount = length fields
+      paramRef i = Var (Ix (fieldCount + (paramCount - i - 1))) []
+      resultTy = foldl App (GlobalVar (tyConName tc)) [paramRef i | i <- [0 .. paramCount - 1]]
+      cty = wrapPis (params ++ fields) resultTy
+      ci = ConInfo c (tyConName tc) (length params) (length fields) idx
+  pure (ci, cty)
+
+inferCtors :: CheckArgs Val => TyConInfo -> [TelArg] -> Int -> [RawCtor] -> M [(ConInfo, Val, VTy)]
+inferCtors _ _ _ [] = pure []
+inferCtors tc params idx (ctor : rest) = do
+  (ci, cty) <- inferCtor tc params idx ctor
+  let cval =
+        if conParamCount ci + conFieldCount ci == 0
+          then VCon ci []
+          else VConFun ci []
+      cvty = eval cty
+  rest' <- ctxDefineConInfo ci $ ctxDefineGlobal (conName ci) cval cvty $ inferCtors tc params (idx + 1) rest
+  pure ((ci, cval, cvty) : rest')
+
+inferTopInd :: CheckArgs Val => Name -> [RawArg] -> [RawCtor] -> M (Val, VTy, TyConInfo, [(ConInfo, Val, VTy)])
+inferTopInd x paramsRaw ctorsRaw = withRawArgs paramsRaw $ \params -> do
+  let ctorNames = [c | RawCtor c _ <- ctorsRaw]
+      tc = TyConInfo x (length params) ctorNames
+      tyconVal =
+        if null params
+          then VTyCon tc []
+          else VTyConFun tc []
+      tyconTy = eval (wrapPis params U)
+  ctors <- ctxDefineTyConInfo tc $ ctxDefineGlobal x tyconVal tyconTy $ inferCtors tc params 0 ctorsRaw
+  pure (tyconVal, tyconTy, tc, ctors)
+
+withConEntries :: [(ConInfo, Val, VTy)] -> (CheckArgs Val => M a) -> (CheckArgs Val => M a)
+withConEntries [] act = act
+withConEntries ((ci, cval, cvty) : rest) act =
+  withConEntries rest (ctxDefineConInfo ci $ ctxDefineGlobal (conName ci) cval cvty act)
 
 inferTopDefs :: CheckArgs Val => [RawDecl] -> M Globals
 inferTopDefs [] = pure ?globals
-inferTopDefs ((RTopDef pos x args mty rhs) : rest) = let ?pos = pos in do
-  (t, a) <- inferTopDef args mty rhs
-  let v = eval t
-  ctxDefineGlobal x v a (inferTopDefs rest)
+inferTopDefs (decl : rest) = case decl of
+  RTopDef pos x args mty rhs -> let ?pos = pos in do
+    case mty of
+      Nothing -> do
+        (tm, ty) <- inferTopDefNonRec args mty rhs
+        ctxDefineGlobal x (eval tm) ty (inferTopDefs rest)
+      Just rawRet -> do
+        (_, ty, v) <- inferTopDefRec x args rawRet rhs
+        ctxDefineGlobal x v ty (inferTopDefs rest)
+  RTopInd pos x params ctors -> let ?pos = pos in do
+    (tyconVal, tyconTy, tc, cons) <- inferTopInd x params ctors
+    ctxDefineTyConInfo tc $
+      ctxDefineGlobal x tyconVal tyconTy $
+        withConEntries cons (inferTopDefs rest)
 
 inferProgram :: CheckArgs Val => RawProgram -> M (Globals, Maybe (Tm, Ty))
 inferProgram (RProgram defs mt) = do

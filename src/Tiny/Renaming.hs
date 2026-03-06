@@ -21,6 +21,10 @@ instance Renameable Val where
     VU -> VU
     VPi x a b -> VPi x (rename v i a) (rename v i b)
     VLam x c -> VLam x (rename v i c)
+    VTyConFun tc ps -> VTyConFun tc (fmap (rename v i) ps)
+    VTyCon tc ps -> VTyCon tc (fmap (rename v i) ps)
+    VConFun ci sp -> VConFun ci (fmap (rename v i) sp)
+    VCon ci sp -> VCon ci (fmap (rename v i) sp)
     VSg x a b -> VSg x (rename v i a) (rename v i b)
     VPair a b -> VPair (rename v i a) (rename v i b)
     VTiny -> VTiny
@@ -37,6 +41,7 @@ instance Renameable Neutral where
       | i == j -> NVar v (fmap (rename v i) ks)
       | otherwise -> NVar j (fmap (rename v i) ks)
     NGlobalVar x -> NGlobalVar x
+    NCase ne x b alts -> NCase (rename v i ne) x (rename v i b) (fmap (rename v i) alts)
     NApp f a -> NApp (rename v i f) (rename v i a)
     NFst a -> NFst (rename v i a)
     NSnd a -> NSnd (rename v i a)
@@ -51,6 +56,9 @@ instance Renameable Closure where
 
 instance Renameable RootClosure where
   rename v i (RootClosure env t) = RootClosure (rename v i env) t
+
+instance Renameable VCaseAlt where
+  rename v i (VCaseAlt c xs body) = VCaseAlt c xs (rename v i body)
 
 instance Renameable a => Renameable (BindTiny a) where
   rename v i bt@(BindTiny l j _)
@@ -95,6 +103,10 @@ instance Keyable Val where
     VU -> VU
     VPi x a b -> VPi x (addKeys ks a) (addKeys ks b)
     VLam x c -> VLam x (addKeys ks c)
+    VTyConFun tc ps -> VTyConFun tc (fmap (addKeys ks) ps)
+    VTyCon tc ps -> VTyCon tc (fmap (addKeys ks) ps)
+    VConFun ci sp -> VConFun ci (fmap (addKeys ks) sp)
+    VCon ci sp -> VCon ci (fmap (addKeys ks) sp)
     VSg x a b -> VSg x (addKeys ks a) (addKeys ks b)
     VPair x y -> VPair (addKeys ks x) (addKeys ks y)
     VTiny -> VTiny
@@ -109,6 +121,7 @@ instance Keyable Neutral where
   addKeys ks = \case
     NVar lvl keys -> NVar lvl (ks ++ fmap (addKeys ks) keys)
     NGlobalVar x -> NGlobalVar x
+    NCase ne x b alts -> NCase (addKeys ks ne) x (addKeys ks b) (fmap (addKeys ks) alts)
     NApp f a -> NApp (addKeys ks f) (addKeys ks a)
     NFst a -> NFst (addKeys ks a)
     NSnd a -> NSnd (addKeys ks a)
@@ -123,6 +136,9 @@ instance Keyable Closure where
 
 instance Keyable RootClosure where
   addKeys ks (RootClosure env t) = RootClosure (addKeys ks env) t
+
+instance Keyable VCaseAlt where
+  addKeys ks (VCaseAlt c xs body) = VCaseAlt c xs (addKeys ks body)
 
 instance (Keyable a, Renameable a) => Keyable (BindTiny a) where
   addKeys ks bt@(BindTiny l _ _) = freshLvl $ \fr -> BindTiny l fr (addKeys ks (doBindTinyApp bt fr))

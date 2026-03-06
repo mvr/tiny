@@ -32,7 +32,7 @@ envLookup env i keys = go i keys env
     go _ _ EnvEmpty = error "Ran out of environment"
 
 globalLookup :: Globals -> Name -> Val
-globalLookup (Globals names) x = case lookup x names of
+globalLookup gs x = case lookup x (globalNames gs) of
   Just (v, _) -> v
   Nothing -> error ("No global with name " ++ x)
 

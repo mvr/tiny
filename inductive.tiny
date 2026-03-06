@@ -1,0 +1,30 @@
+inductive Nat := zero | suc Nat;
+
+plus2 (x : Nat) := suc (suc x);
+
+add : Nat → Nat → Nat := λ x y. case x [zero. y; suc x'. suc (add x' y)];
+
+add' : Nat → Nat → Nat := λ[
+  zero. λ y. y;
+  suc x. λ y. suc (add' x y)];
+
+inductive Unit := unit;
+triv : (A : U) → (Unit → A) → A := λ A f. f unit;
+trivinv : (A : U) → A → (Unit → A) := λ A a. λ[unit. a];
+
+inductive Empty := ;
+absurd : (A : U) → Empty → A := λ A. λ[];
+absurd' : (A : U) → Empty → A := λ A e. case e [];
+
+inductive Maybe (A : U) := nothing | just A;
+
+fromMaybe : (A : U) → A → Maybe A → A :=
+  λ A d m. case m [nothing. d; just x. x];
+
+fromMaybe' : (A : U) → A → Maybe A → A :=
+  λ A d. λ[
+    nothing. d;
+    just x. x
+  ];
+
+fromMaybe Nat (plus2 zero) (just Nat (add' (suc zero) (suc zero)))

@@ -20,7 +20,9 @@ data Raw
   | RLet Name Raw Raw Raw
   | RPi Name Raw Raw
   | RLam Name Raw
+  | RSplit [RawCaseAlt]
   | RApp Raw Raw
+  | RCase Raw (Maybe (Name, Raw)) [RawCaseAlt]
   | RSg Name Raw Raw
   | RPair Raw Raw
   | RFst Raw
@@ -39,8 +41,15 @@ data Raw
 data RawArg = RawArg Name Raw
   deriving (Show)
 
+data RawCaseAlt = RawCaseAlt Name [Name] Raw
+  deriving (Show)
+
+data RawCtor = RawCtor Name [RawArg]
+  deriving (Show)
+
 data RawDecl
   = RTopDef SourcePos Name [RawArg] (Maybe Raw) Raw
+  | RTopInd SourcePos Name [RawArg] [RawCtor]
   deriving (Show)
 
 data RawProgram
@@ -54,6 +63,7 @@ data Tm
   | Let Name Ty Tm Tm
   | Pi Name Ty Ty
   | Lam Name Tm
+  | Case Tm Name Ty [CaseAlt]
   | App Tm Tm
   | Sg Name Ty Ty
   | Pair Tm Tm
@@ -70,3 +80,5 @@ data Tm
   | Path Name Ty Tm Tm
   | PLam Name Tm Tm Tm
   | PApp Tm Tm Tm Tm
+
+data CaseAlt = CaseAlt Name [Name] Tm

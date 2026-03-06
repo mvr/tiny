@@ -2,7 +2,6 @@
 module Tiny.Parser where
 
 import Control.Monad (guard)
-import Data.Char (isAlphaNum)
 import Data.Maybe (fromMaybe)
 import Data.Void (Void)
 import System.Exit (exitSuccess)
@@ -44,6 +43,8 @@ pSurd = symbol "√" <|> symbol "v/"
 keyword :: String -> Bool
 keyword x =
   x == "let"
+    || x == "inductive"
+    || x == "case"
     || x == "in"
     || x == "λ"
     || x == "U"
@@ -58,38 +59,41 @@ keyword x =
 
 pIdent :: Parser Name
 pIdent = try $ do
-  x <- (:) <$> C.letterChar <*> many (C.alphaNumChar <|> char '_')
+  x <- (:) <$> C.letterChar <*> many (C.alphaNumChar <|> C.char '_' <|> C.char '\'')
   guard (not (keyword x))
   x <$ ws
 
 pKeyword :: String -> Parser ()
-pKeyword kw = do
+pKeyword kw = lexeme . try $ do
   C.string kw
-  (takeWhile1P Nothing isAlphaNum *> empty) <|> ws
+  notFollowedBy (C.alphaNumChar <|> C.char '_' <|> C.char '\'')
 
 pKeyList :: Parser [Raw]
 pKeyList = do
   symbol "["
-  keys <- sepBy pRaw (symbol ",")
+  keys <- sepBy1 pRaw (symbol ",")
   symbol "]"
   pure keys
 
 pVar :: Parser Raw
 pVar = do
   i <- pIdent
-  keys <- fromMaybe [] <$> optional pKeyList
+  keys <- fromMaybe [] <$> optional (try pKeyList)
   pure (RVar i keys)
 
 pAtom :: Parser Raw
 pAtom =
-  withPos ((RU <$ symbol "U") <|> (RTiny <$ symbol "T") <|> (RTiny0 <$ symbol "t0") <|> (RTiny1 <$ symbol "t1") <|> pVar)
+  withPos ((RU <$ pKeyword "U") <|> (RTiny <$ pKeyword "T") <|> (RTiny0 <$ pKeyword "t0") <|> (RTiny1 <$ pKeyword "t1") <|> pVar)
     <|> parens pRaw
 
 pBinder :: Parser Name
 pBinder = pIdent <|> symbol "_"
 
 pSpine :: Parser Raw
-pSpine = foldl1 RApp <$> some pAtom
+pSpine = do
+  h <- pAtom
+  ts <- many (try pAtom)
+  pure (foldl RApp h ts)
 
 pPi :: Parser Raw
 pPi = do
@@ -105,6 +109,32 @@ pLam = do
   char '.'
   t <- pRaw
   pure (foldr RLam t xs)
+
+pSplit :: Parser Raw
+pSplit = do
+  char 'λ' <|> char '\\'
+  symbol "["
+  alts <- sepBy pCaseAlt (symbol ";")
+  symbol "]"
+  pure (RSplit alts)
+
+pCaseAlt :: Parser RawCaseAlt
+pCaseAlt = do
+  c <- pIdent
+  xs <- many pBinder
+  char '.'
+  body <- pRaw
+  pure (RawCaseAlt c xs body)
+
+pCase :: Parser Raw
+pCase = do
+  symbol "case"
+  scrut <- pRaw
+  motive <- optional (parens ((,) <$> pBinder <*> (char '.' *> pRaw)))
+  symbol "["
+  alts <- sepBy pCaseAlt (symbol ";")
+  symbol "]"
+  pure (RCase scrut motive alts)
 
 pSg :: Parser Raw
 pSg = do
@@ -188,6 +218,28 @@ typedArgGroup = do
   (xs, a) <- parens ((,) <$> some pBinder <*> (char ':' *> pRaw))
   pure (fmap (`RawArg` a) xs)
 
+pCtorField :: Parser [RawArg]
+pCtorField =
+  try typedArgGroup
+    <|> ((: []) . RawArg "_" <$> pAtom)
+
+pCtor :: Parser RawCtor
+pCtor = do
+  c <- pIdent
+  fields <- concat <$> many pCtorField
+  pure (RawCtor c fields)
+
+pTopInd :: Parser RawDecl
+pTopInd = do
+  pos <- getSourcePos
+  pKeyword "inductive"
+  x <- pIdent
+  params <- concat <$> many typedArgGroup
+  symbol ":="
+  ctors <- sepBy pCtor (symbol "|")
+  symbol ";"
+  pure (RTopInd pos x params ctors)
+
 pTopDef :: Parser RawDecl
 pTopDef = do
   pos <- getSourcePos
@@ -200,12 +252,14 @@ pTopDef = do
   pure (RTopDef pos x args mty t)
 
 pTopDecl :: Parser RawDecl
-pTopDecl = try pTopDef
+pTopDecl = try pTopInd <|> try pTopDef
 
 pRaw :: Parser Raw
 pRaw =
   withPos
-    ( pLam
+    ( try pSplit
+        <|> pLam
+        <|> pCase
         <|> pPair
         <|> pFst
         <|> pSnd

@@ -18,6 +18,17 @@ instance Apply Val Val Val where
 
 doApp :: (FreshArg, ?globals :: Globals) => Val -> Val -> Val
 doApp (VLam _ t) u = t ∙ u
+doApp (VTyConFun tc args) u =
+  let args' = args ++ [u]
+   in if length args' == tyConParamCount tc
+        then VTyCon tc args'
+        else VTyConFun tc args'
+doApp (VConFun ci args) u =
+  let args' = args ++ [u]
+      arity = conParamCount ci + conFieldCount ci
+   in if length args' == arity
+        then VCon ci args'
+        else VConFun ci args'
 doApp (VNeutral ne) a = VNeutral (NApp ne a)
 doApp t u = error $ "Unexpected in App: " ++ show t ++ " applied to " ++ show u
 
@@ -95,12 +106,31 @@ doPApp (VPLam _ c _ _) t _ _ = c ∙ t
 doPApp (VNeutral ne) t a0 a1 = VNeutral (NPApp ne t a0 a1)
 doPApp v _ _ _ = error $ "Unexpected in papp: " ++ show v
 
+caseAltVal :: (FreshArg, EnvArg Val, ?globals :: Globals) => CaseAlt -> VCaseAlt
+caseAltVal (CaseAlt c xs body) = VCaseAlt c xs (eval (foldr Lam body xs))
+
+findCaseAlt :: Name -> [VCaseAlt] -> Maybe VCaseAlt
+findCaseAlt _ [] = Nothing
+findCaseAlt c (alt@(VCaseAlt c' _ _) : rest)
+  | c == c' = Just alt
+  | otherwise = findCaseAlt c rest
+
+doCase :: (FreshArg, ?globals :: Globals) => Val -> Name -> Closure -> [VCaseAlt] -> Val
+doCase (VCon ci args) x motive alts =
+  let fields = drop (conParamCount ci) args
+  in case findCaseAlt (conName ci) alts of
+    Just (VCaseAlt _ _ branch) -> foldl doApp branch fields
+    Nothing -> error ("missing case alternative for constructor " ++ conName ci)
+doCase (VNeutral ne) x motive alts = VNeutral (NCase ne x motive alts)
+doCase scrut _ _ _ = error ("Expected constructor in case, got: " ++ show scrut)
+
 eval :: (FreshArg, EnvArg Val, ?globals :: Globals) => Tm -> Val
 eval t = case t of
   U -> VU
   Let _ _ t' u -> define (eval t') (eval u)
   Pi x a b -> VPi x (eval a) (Closure ?env b)
   Lam x t' -> VLam x (Closure ?env t')
+  Case t' x b alts -> doCase (eval t') x (Closure ?env b) (fmap caseAltVal alts)
   App t' u -> eval t' ∙ eval u
   Sg x a b -> VSg x (eval a) (Closure ?env b)
   Pair a b -> VPair (eval a) (eval b)
@@ -122,6 +152,10 @@ quote :: (FreshArg, ?globals :: Globals, EnvArg Val) => Val -> Tm
 quote = \case
   VU -> U
   VPi x a b -> Pi x (quote a) (defineNextVar \var -> quote (b ∙ var))
+  VTyConFun tc args -> foldl App (GlobalVar (tyConName tc)) (fmap quote args)
+  VTyCon tc args -> foldl App (GlobalVar (tyConName tc)) (fmap quote args)
+  VConFun ci args -> foldl App (GlobalVar (conName ci)) (fmap quote args)
+  VCon ci args -> foldl App (GlobalVar (conName ci)) (fmap quote args)
   VSg x a b -> Sg x (quote a) (defineNextVar \var -> quote (b ∙ var))
   VTiny -> Tiny
   VRoot a -> Root (defineStuck (quote (coapplyStuck a)))
@@ -137,6 +171,16 @@ quote = \case
 quoteNeutral :: (FreshArg, ?globals :: Globals, EnvArg Val) => Neutral -> Tm
 quoteNeutral (NVar x keys) = Var (lvl2Ix ?env x) (fmap quote keys)
 quoteNeutral (NGlobalVar x) = GlobalVar x
+quoteNeutral (NCase ne x b alts) =
+  Case
+    (quoteNeutral ne)
+    x
+    (defineNextVar \var -> quote (b ∙ var))
+    (fmap quoteAlt alts)
+  where
+    quoteAlt (VCaseAlt c xs v) = CaseAlt c xs (quoteCaseBody xs v)
+    quoteCaseBody [] v = quote v
+    quoteCaseBody (_ : xs) v = defineNextVar \var -> quoteCaseBody xs (v ∙ var)
 quoteNeutral (NApp f a) = App (quoteNeutral f) (quote a)
 quoteNeutral (NFst a) = Fst (quoteNeutral a)
 quoteNeutral (NSnd a) = Snd (quoteNeutral a)
@@ -157,6 +201,22 @@ eq :: (FreshArg, ?globals :: Globals) => EnvArg Val => Val -> Val -> Bool
 eq VU VU = True
 eq (VNeutral ne1) (VNeutral ne2) = eqNE ne1 ne2
 eq (VPi _ aty1 bclo1) (VPi _ aty2 bclo2) = eq aty1 aty2 && defineNextVar (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
+eq (VTyCon tc1 ps1) (VTyCon tc2 ps2) =
+  tyConName tc1 == tyConName tc2
+    && length ps1 == length ps2
+    && and (zipWith eq ps1 ps2)
+eq (VTyConFun tc1 ps1) (VTyConFun tc2 ps2) =
+  tyConName tc1 == tyConName tc2
+    && length ps1 == length ps2
+    && and (zipWith eq ps1 ps2)
+eq (VCon ci1 sp1) (VCon ci2 sp2) =
+  conName ci1 == conName ci2
+    && length sp1 == length sp2
+    && and (zipWith eq sp1 sp2)
+eq (VConFun ci1 sp1) (VConFun ci2 sp2) =
+  conName ci1 == conName ci2
+    && length sp1 == length sp2
+    && and (zipWith eq sp1 sp2)
 eq (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) = eq aty1 aty2 && defineNextVar (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
 eq VTiny VTiny = True
 eq (VRoot a) (VRoot a') = defineStuck $ eq (coapplyStuck a) (coapplyStuck a')
@@ -180,6 +240,14 @@ eq _ _ = False
 
 eqNE :: (FreshArg, ?globals :: Globals) => EnvArg Val => Neutral -> Neutral -> Bool
 eqNE (NVar i ikeys) (NVar j jkeys) = i == j && all (uncurry eq) (zip ikeys jkeys)
+eqNE (NCase ne1 _ b1 alts1) (NCase ne2 _ b2 alts2) =
+  eqNE ne1 ne2
+    && defineNextVar (\var -> eq (b1 ∙ var) (b2 ∙ var))
+    && length alts1 == length alts2
+    && and (zipWith eqAlt alts1 alts2)
+  where
+    eqAlt (VCaseAlt c1 xs1 v1) (VCaseAlt c2 xs2 v2) =
+      c1 == c2 && xs1 == xs2 && eq v1 v2
 eqNE (NApp f1 a1) (NApp f2 a2) = eqNE f1 f2 && eq a1 a2
 eqNE (NFst p1) (NFst p2) = eqNE p1 p2
 eqNE (NSnd p1) (NSnd p2) = eqNE p1 p2
@@ -200,6 +268,10 @@ instance Substitutable Val Val where
     VU -> VU
     VPi x a b -> VPi x (sub v i a) (sub v i b)
     VLam x c -> VLam x (sub v i c)
+    VTyConFun tc args -> VTyConFun tc (fmap (sub v i) args)
+    VTyCon tc args -> VTyCon tc (fmap (sub v i) args)
+    VConFun ci args -> VConFun ci (fmap (sub v i) args)
+    VCon ci args -> VCon ci (fmap (sub v i) args)
     VSg x a b -> VSg x (sub v i a) (sub v i b)
     VPair a b -> VPair (sub v i a) (sub v i b)
     VTiny -> VTiny
@@ -217,6 +289,7 @@ instance Substitutable Neutral Val where
       | i == j -> addKeys (fmap (sub v i) ks) v
       | otherwise -> VNeutral (NVar j (fmap (sub v i) ks))
     NGlobalVar x -> VNeutral (NGlobalVar x)
+    NCase ne x b alts -> doCase (sub v i ne) x (sub v i b) (fmap (sub v i) alts)
     NApp f a -> sub v i f ∙ sub v i a
     NFst a -> doFst (sub v i a)
     NSnd b -> doSnd (sub v i b)
@@ -231,6 +304,9 @@ instance Substitutable Closure Closure where
 
 instance Substitutable RootClosure RootClosure where
   sub v i (RootClosure env t) = RootClosure (sub v i env) t
+
+instance Substitutable VCaseAlt VCaseAlt where
+  sub v i (VCaseAlt c xs body) = VCaseAlt c xs (sub v i body)
 
 instance Substitutable (BindTiny Neutral) (BindTiny Val) where
   sub v i bt@(BindTiny l _ _) = freshLvl $ \fr -> BindTiny l fr (sub v i (bt ∙ fr))

@@ -30,8 +30,28 @@ instance Functor EnvVars where
   fmap f (EnvVal v env) = EnvVal (f v) (fmap f env)
   fmap f (EnvLock fenv) = EnvLock (\v -> fmap f (fenv v))
 
--- TODO: Where should this naturally go
-newtype Globals = Globals { globalNames :: [(Name, (Val, VTy))]}
+data TyConInfo = TyConInfo
+  { tyConName :: Name,
+    tyConParamCount :: Int,
+    tyConConstructors :: [Name]
+  }
+  deriving (Show)
+
+data ConInfo = ConInfo
+  { conName :: Name,
+    conTyCon :: Name,
+    conParamCount :: Int,
+    conFieldCount :: Int,
+    conIndex :: Int
+  }
+  deriving (Show)
+
+data Globals = Globals
+  { globalNames :: [(Name, (Val, VTy))],
+    globalTyCons :: [(Name, TyConInfo)],
+    globalCons :: [(Name, ConInfo)]
+  }
+  deriving (Show)
 
 data Closure = Closure (Env Val) Tm
 
@@ -47,6 +67,10 @@ data Val
   | VU
   | VPi Name VTy Closure
   | VLam Name Closure
+  | VTyConFun TyConInfo [Val]
+  | VTyCon TyConInfo [Val]
+  | VConFun ConInfo [Val]
+  | VCon ConInfo [Val]
   | VSg Name VTy Closure
   | VPair Val Val
   | VTiny
@@ -58,12 +82,16 @@ data Val
   | VPLam Name Closure Val Val
   deriving (Show)
 
+data VCaseAlt = VCaseAlt Name [Name] Val
+  deriving (Show)
+
 data Neutral
   = NApp Neutral Val
   | NFst Neutral
   | NSnd Neutral
   | NVar Lvl [Val]
   | NGlobalVar Name
+  | NCase Neutral Name Closure [VCaseAlt]
   | NRootElim (BindTiny Neutral)
   | NPApp Neutral Val Val Val
   deriving (Show)

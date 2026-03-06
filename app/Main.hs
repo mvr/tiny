@@ -43,14 +43,14 @@ mainWith getOpt getRaw = do
       (t, file) <- getRaw
       case withEmptyCtx (initialPos file) (inferProgram t) of
         Left err -> displayError file err
-        Right (Globals _, Nothing) -> putStrLn "Checked!"
-        Right (Globals _, Just (_, ty)) -> print ty
+        Right (_, Nothing) -> putStrLn "Checked!"
+        Right (_, Just (_, ty)) -> print ty
     ["types"] -> do
       (t, file) <- getRaw
       case withEmptyCtx (initialPos file) (inferProgram t) of
         Left err -> displayError file err
-        Right (Globals gs, _) -> forM_ (reverse gs) $ \(x, (v, vty)) ->
-          let ty = withEmptyCtx (initialPos file) $ withGlobals (Globals gs) $ quote vty in
+        Right (gs, _) -> forM_ (reverse (globalNames gs)) $ \(x, (_, vty)) ->
+          let ty = withEmptyCtx (initialPos file) $ withGlobals gs $ quote vty in
           putStrLn (x ++ " : " ++ show ty)
     _ -> putStrLn "unknown option"
 

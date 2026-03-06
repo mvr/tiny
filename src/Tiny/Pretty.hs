@@ -48,6 +48,27 @@ prettyTm prec = go prec
             (' ' :) . (x' ++) . goLam (x' : ns') t'
           goLam ns' t' =
             (". " ++) . go letp ns' t'
+      Case t x b alts ->
+        par p letp $
+          ("case " ++) . go letp ns t . goMotive ns x b . (" [" ++) . goAlts ns alts . ("]" ++)
+        where
+          goMotive ns' "_" _ = id
+          goMotive ns' x' b' =
+            let x'' = freshName ns' x'
+             in (" (" ++) . (x'' ++) . (". " ++) . go letp (x'' : ns') b' . (")" ++)
+          goAlts _ [] = id
+          goAlts ns' [alt] = goAlt ns' alt
+          goAlts ns' (alt : rest) = goAlt ns' alt . ("; " ++) . goAlts ns' rest
+          goAlt ns' (CaseAlt c xs body) =
+            let xs' = freshMany ns' xs
+                nsBody = foldl (\acc x' -> x' : acc) ns' xs'
+             in (c ++) . goBinders xs' . (". " ++) . go letp nsBody body
+          goBinders [] = id
+          goBinders (x' : xs') = (' ' :) . (x' ++) . goBinders xs'
+          freshMany _ [] = []
+          freshMany ns' (x' : xs') =
+            let x'' = freshName ns' x'
+             in x'' : freshMany (x'' : ns') xs'
       App t u -> par p appp $ go appp ns t . (' ' :) . go atomp ns u
       Sg "_" a b -> par p pip $ go appp ns a . (" × " ++) . go pip ("_" : ns) b
       Sg (freshName ns -> x) a b ->
