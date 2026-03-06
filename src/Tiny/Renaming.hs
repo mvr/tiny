@@ -25,6 +25,7 @@ instance Renameable Val where
     VTyCon tc ps -> VTyCon tc (fmap (rename v i) ps)
     VConFun ci sp -> VConFun ci (fmap (rename v i) sp)
     VCon ci sp -> VCon ci (fmap (rename v i) sp)
+    VSqc sqc -> VSqc sqc
     VSg x a b -> VSg x (rename v i a) (rename v i b)
     VPair a b -> VPair (rename v i a) (rename v i b)
     VTiny -> VTiny
@@ -45,6 +46,7 @@ instance Renameable Neutral where
     NApp f a -> NApp (rename v i f) (rename v i a)
     NFst a -> NFst (rename v i a)
     NSnd a -> NSnd (rename v i a)
+    NSqc sqc f -> NSqc sqc (rename v i f)
     NRootElim bt -> NRootElim (rename v i bt)
     NPApp p i' a0 a1 -> NPApp (rename v i p) (rename v i i') (rename v i a0) (rename v i a1)
 
@@ -107,6 +109,7 @@ instance Keyable Val where
     VTyCon tc ps -> VTyCon tc (fmap (addKeys ks) ps)
     VConFun ci sp -> VConFun ci (fmap (addKeys ks) sp)
     VCon ci sp -> VCon ci (fmap (addKeys ks) sp)
+    VSqc sqc -> VSqc sqc
     VSg x a b -> VSg x (addKeys ks a) (addKeys ks b)
     VPair x y -> VPair (addKeys ks x) (addKeys ks y)
     VTiny -> VTiny
@@ -125,6 +128,7 @@ instance Keyable Neutral where
     NApp f a -> NApp (addKeys ks f) (addKeys ks a)
     NFst a -> NFst (addKeys ks a)
     NSnd a -> NSnd (addKeys ks a)
+    NSqc sqc f -> NSqc sqc (addKeys ks f)
     NRootElim bt -> NRootElim (addKeys ks bt)
     NPApp p i a0 a1 -> NPApp (addKeys ks p) (addKeys ks i) (addKeys ks a0) (addKeys ks a1)
 

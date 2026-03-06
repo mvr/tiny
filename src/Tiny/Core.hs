@@ -29,6 +29,7 @@ doApp (VConFun ci args) u =
    in if length args' == arity
         then VCon ci args'
         else VConFun ci args'
+doApp (VSqc sqc) f = doSqc sqc f
 doApp (VNeutral ne) a = VNeutral (NApp ne a)
 doApp t u = error $ "Unexpected in App: " ++ show t ++ " applied to " ++ show u
 
@@ -85,6 +86,18 @@ coapplyStuck :: (FreshArg, ?globals :: Globals) => RootClosure -> Val
 coapplyStuck (RootClosure cloenv t) =
   let ?env = cloenv {envFresh = max (envFresh cloenv) ?fresh}
    in defineStuck (eval t)
+
+doSqc :: (FreshArg, ?globals :: Globals) => SqcInfo -> Val -> Val
+doSqc sqc f = freshLvl $ \x -> freshLvl $ \y ->
+  let vx = makeVarLvl x
+      vy = makeVarLvl y
+      fx = f ∙ vx
+      fy = f ∙ vy
+  in if eq fx fy
+    then VCon (sqcJustCon sqc) [VTiny, fx]
+    else if eq fx vx
+      then VCon (sqcNothingCon sqc) [VTiny]
+      else VNeutral (NSqc sqc f)
 
 -- Evaluation
 ------------------------------------------------------------
@@ -156,6 +169,7 @@ quote = \case
   VTyCon tc args -> foldl App (GlobalVar (tyConName tc)) (fmap quote args)
   VConFun ci args -> foldl App (GlobalVar (conName ci)) (fmap quote args)
   VCon ci args -> foldl App (GlobalVar (conName ci)) (fmap quote args)
+  VSqc sqc -> GlobalVar (sqcName sqc)
   VSg x a b -> Sg x (quote a) (defineNextVar \var -> quote (b ∙ var))
   VTiny -> Tiny
   VRoot a -> Root (defineStuck (quote (coapplyStuck a)))
@@ -184,6 +198,7 @@ quoteNeutral (NCase ne x b alts) =
 quoteNeutral (NApp f a) = App (quoteNeutral f) (quote a)
 quoteNeutral (NFst a) = Fst (quoteNeutral a)
 quoteNeutral (NSnd a) = Snd (quoteNeutral a)
+quoteNeutral (NSqc sqc f) = App (GlobalVar (sqcName sqc)) (quote f)
 quoteNeutral (NRootElim bt@(BindTiny l _ _)) =
   RootElim l $
     let lvl :: Lvl
@@ -217,6 +232,7 @@ eq (VConFun ci1 sp1) (VConFun ci2 sp2) =
   conName ci1 == conName ci2
     && length sp1 == length sp2
     && and (zipWith eq sp1 sp2)
+eq (VSqc sqc1) (VSqc sqc2) = sqcName sqc1 == sqcName sqc2
 eq (VSg _ aty1 bclo1) (VSg _ aty2 bclo2) = eq aty1 aty2 && withFresh (\var -> eq (bclo1 ∙ var) (bclo2 ∙ var))
 eq VTiny VTiny = True
 eq VTiny0 VTiny0 = True
@@ -253,6 +269,7 @@ eqNE (NCase ne1 _ b1 alts1) (NCase ne2 _ b2 alts2) =
 eqNE (NApp f1 a1) (NApp f2 a2) = eqNE f1 f2 && eq a1 a2
 eqNE (NFst p1) (NFst p2) = eqNE p1 p2
 eqNE (NSnd p1) (NSnd p2) = eqNE p1 p2
+eqNE (NSqc sqc1 f1) (NSqc sqc2 f2) = sqcName sqc1 == sqcName sqc2 && eq f1 f2
 eqNE (NRootElim tb1) (NRootElim tb2) = freshLvl (\fr -> eqNE (tb1 ∙ fr) (tb2 ∙ fr))
 eqNE (NPApp f1 a1 _ _) (NPApp f2 a2 _ _) = eqNE f1 f2 && eq a1 a2
 eqNE _ _ = False
@@ -274,6 +291,7 @@ instance Substitutable Val Val where
     VTyCon tc args -> VTyCon tc (fmap (sub v i) args)
     VConFun ci args -> VConFun ci (fmap (sub v i) args)
     VCon ci args -> VCon ci (fmap (sub v i) args)
+    VSqc sqc -> VSqc sqc
     VSg x a b -> VSg x (sub v i a) (sub v i b)
     VPair a b -> VPair (sub v i a) (sub v i b)
     VTiny -> VTiny
@@ -295,6 +313,7 @@ instance Substitutable Neutral Val where
     NApp f a -> sub v i f ∙ sub v i a
     NFst a -> doFst (sub v i a)
     NSnd b -> doSnd (sub v i b)
+    NSqc sqc f -> doSqc sqc (sub v i f)
     NRootElim bt -> freshLvl $ \fr -> doRootElim (sub v i (bt ∙ fr)) fr
     NPApp p t a0 a1 -> doPApp (sub v i p) (sub v i t) (sub v i a0) (sub v i a1)
 

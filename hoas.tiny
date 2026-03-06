@@ -1,0 +1,28 @@
+inductive Maybe (A : U) := nothing | just A;
+
+magic sqc : (T → T) → Maybe T;
+
+inductive Exp :=
+    var T
+  | lam (T → Exp)
+  | app Exp Exp
+  ;
+
+conj : Exp → √ (Exp → Exp) :=
+  λ[ var i. rintro λ u. case (sqc (λ j. i[j])) [
+                          nothing. u;
+                          just c. var c
+                        ];
+     lam f. rintro λ u. lam (λ j. (relim i. conj (f[i] j)) u);
+     app f a. rintro λ u. app ((relim i. conj f[i]) u) ((relim i. conj a[i]) u)
+  ];
+
+subst (u : Exp) (v : T → Exp) : Exp :=
+  (relim i. conj (v i)) u;
+
+exp1 : T → Exp := λ i. lam (λ j. var i);
+exp2 : T → Exp := λ i. lam (λ j. app (var j) (var i));
+
+u : Exp := u;
+
+subst u exp2 -- Gives `lam (λ j. app (var j) u)` !!

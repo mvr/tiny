@@ -1,0 +1,25 @@
+inductive Maybe (A : U) := nothing | just A;
+
+magic sqc : (T → T) → Maybe T;
+
+sqc_id : Maybe T := sqc (λ x. x);
+sqc_const : T → Maybe T := λ j. sqc (λ _. j);
+
+myst : T → T := myst;
+sqc_stuck : Maybe T := sqc myst;
+
+sqc_inv : Maybe T → (T → T) :=
+  λ[ nothing. λ x. x;
+     just t. λ _. t ];
+
+refl (A : U) (x : A) : Path x x
+    := λ i. x;
+
+sqc_ret (m : Maybe T) : Path m (sqc (sqc_inv m)) :=
+  case m (x. Path x (sqc (sqc_inv x)))
+  [ nothing. refl (Maybe T) (nothing T);
+    just t.  refl (Maybe T) (just T t) ];
+
+the (A : U) (a : A) : A := a;
+
+the (Maybe T × ((T → Maybe T) × Maybe T)) (< sqc_id , < sqc_const , sqc_stuck > >)

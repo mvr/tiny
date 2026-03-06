@@ -50,6 +50,7 @@ data RawCtor = RawCtor Name [RawArg]
 data RawDecl
   = RTopDef SourcePos Name [RawArg] (Maybe Raw) Raw
   | RTopInd SourcePos Name [RawArg] [RawCtor]
+  | RTopMagic SourcePos Name Raw
   deriving (Show)
 
 data RawProgram

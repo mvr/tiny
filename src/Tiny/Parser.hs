@@ -44,6 +44,7 @@ keyword :: String -> Bool
 keyword x =
   x == "let"
     || x == "inductive"
+    || x == "magic"
     || x == "case"
     || x == "in"
     || x == "λ"
@@ -240,6 +241,16 @@ pTopInd = do
   symbol ";"
   pure (RTopInd pos x params ctors)
 
+pTopMagic :: Parser RawDecl
+pTopMagic = do
+  pos <- getSourcePos
+  pKeyword "magic"
+  x <- pIdent
+  char ':'
+  a <- pRaw
+  symbol ";"
+  pure (RTopMagic pos x a)
+
 pTopDef :: Parser RawDecl
 pTopDef = do
   pos <- getSourcePos
@@ -252,7 +263,7 @@ pTopDef = do
   pure (RTopDef pos x args mty t)
 
 pTopDecl :: Parser RawDecl
-pTopDecl = try pTopInd <|> try pTopDef
+pTopDecl = try pTopInd <|> try pTopMagic <|> try pTopDef
 
 pRaw :: Parser Raw
 pRaw =

@@ -29,13 +29,13 @@ functorial (A : √ U) (B : √ U)
   := λ r. rintro (relim i. f[i]) (relim i. r[i]);
 
 preserve_sigma (A : √ U) (B : √ (relim i. A[i]) → U)
-  (r : √ (x : relim i. A[i]) * (relim i. B[i]) x)
-  : (x : √ relim i. A[i]) * √ (relim i. B[i]) (relim i. x[i])
+  (r : √ (x : relim i. A[i]) × (relim i. B[i]) x)
+  : (x : √ relim i. A[i]) × √ (relim i. B[i]) (relim i. x[i])
   := < rintro fst relim i. r[i], rintro snd relim i. r[i] >;
 
 preserve_sigma_inv (A : √ U) (B : √ (relim i. A[i]) → U)
-  (p : (x : √ relim i. A[i]) * √ (relim i. B[i]) (relim i. x[i]))
-  : (√ (x : relim i. A[i]) * (relim i. B[i]) x)
+  (p : (x : √ relim i. A[i]) × √ (relim i. B[i]) (relim i. x[i]))
+  : (√ (x : relim i. A[i]) × (relim i. B[i]) x)
   := rintro < relim i. fst p[i] , relim i. snd p[i] >;
 
 T

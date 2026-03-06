@@ -46,6 +46,13 @@ data ConInfo = ConInfo
   }
   deriving (Show)
 
+data SqcInfo = SqcInfo
+  { sqcName :: Name,
+    sqcNothingCon :: ConInfo,
+    sqcJustCon :: ConInfo
+  }
+  deriving (Show)
+
 data Globals = Globals
   { globalNames :: [(Name, (Val, VTy))],
     globalTyCons :: [(Name, TyConInfo)],
@@ -71,6 +78,7 @@ data Val
   | VTyCon TyConInfo [Val]
   | VConFun ConInfo [Val]
   | VCon ConInfo [Val]
+  | VSqc SqcInfo
   | VSg Name VTy Closure
   | VPair Val Val
   | VTiny
@@ -92,6 +100,7 @@ data Neutral
   | NVar Lvl [Val]
   | NGlobalVar Name
   | NCase Neutral Name Closure [VCaseAlt]
+  | NSqc SqcInfo Val
   | NRootElim (BindTiny Neutral)
   | NPApp Neutral Val Val Val
   deriving (Show)

@@ -76,6 +76,12 @@ report msg = Left (msg, ?pos)
 findLocal :: CheckArgs Val => Name -> [Raw] -> M (Maybe (Tm, VTy))
 findLocal x rkeys = go 0 (envVars ?env) ?locals rkeys
   where
+    localOccurs :: Name -> Locals -> Bool
+    localOccurs y = \case
+      LocalsEmpty -> False
+      LocalsVal z _ rest -> y == z || localOccurs y rest
+      LocalsLock rest -> localOccurs y rest
+
     go _ EnvEmpty LocalsEmpty _ = pure Nothing
     go i (EnvVal _ env') (LocalsVal x' ty locals') keys
       | x == x' = case keys of
@@ -84,7 +90,9 @@ findLocal x rkeys = go 0 (envVars ?env) ?locals rkeys
             pure (Just (Var i keyst, ty))
           _ -> report ("too many keys provided: " ++ x)
       | otherwise = go (i + 1) env' locals' keys
-    go _ (EnvLock _) (LocalsLock _) [] = report ("not enough keys provided: " ++ x)
+    go _ (EnvLock _) (LocalsLock locals') []
+      | localOccurs x locals' = report ("not enough keys provided: " ++ x)
+      | otherwise = pure Nothing
     go i (EnvLock fenv) (LocalsLock locals') (key : keys) = do
       keyt <- check key VTiny
       let keyv = eval keyt
@@ -125,6 +133,29 @@ withRawArgs = go []
 
 wrapPis :: [TelArg] -> Ty -> Ty
 wrapPis infos body = foldr (\(TelArg x a) b -> Pi x a b) body infos
+
+inferSqcInfo :: CheckArgs Val => Name -> VTy -> M SqcInfo
+inferSqcInfo sqcName ty = case ty of
+  VTyCon tc [_] -> do
+    cis <- orderedConInfos tc
+    let zeroFields = filter (\ci -> conFieldCount ci == 0) cis
+        oneField   = filter (\ci -> conFieldCount ci == 1) cis
+    (nothingCi, justCi) <- case (zeroFields, oneField) of
+      ([ci0], [ci1]) -> pure (ci0, ci1)
+      _ -> report "magic codomain must be Maybe-like with one nullary and one unary constructor"
+    pure (SqcInfo sqcName nothingCi justCi)
+  _ -> report "magic codomain must be Maybe T"
+
+inferTopMagic :: CheckArgs Val => Name -> Raw -> M (Val, VTy)
+inferTopMagic x rawTy = do
+  ty <- check rawTy VU
+  let vty = eval ty
+  case vty of
+    VPi _ dom cod -> do
+      codTy <- ctxDefineNextVar "_" dom (\v -> pure (cod ∙ v))
+      sqc <- inferSqcInfo x codTy
+      pure (VSqc sqc, vty)
+    _ -> report "magic must have type (T -> T) -> Maybe T"
 
 expectTyCon :: CheckArgs v => VTy -> M (TyConInfo, [Val])
 expectTyCon = \case
@@ -422,6 +453,9 @@ inferTopDefs (decl : rest) = case decl of
     ctxDefineTyConInfo tc $
       ctxDefineGlobal x tyconVal tyconTy $
         withConEntries cons (inferTopDefs rest)
+  RTopMagic pos x rawTy -> let ?pos = pos in do
+    (v, ty) <- inferTopMagic x rawTy
+    ctxDefineGlobal x v ty (inferTopDefs rest)
 
 inferProgram :: CheckArgs Val => RawProgram -> M (Globals, Maybe (Tm, Ty))
 inferProgram (RProgram defs mt) = do
